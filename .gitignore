@@ -15,5 +15,9 @@ target/
 *.log
 hs_err_pid*.log
 
-# Markdown at repo root only (notes/PRDs); doc/** may include .md (Javadoc legal/)
+# Markdown at repo root (notes, PRDs, local writeups)
 /*.md
+
+# Local tooling / decompile scratch (not part of the assignment tree)
+tools/
+src_decompiled/
