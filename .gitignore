@@ -1,0 +1,19 @@
+# Build output
+out/
+bin/
+build/
+target/
+*.class
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Generated Javadoc (regenerate with javadoc if needed)
+doc/
+
+# Logs / temp
+*.log
+hs_err_pid*.log

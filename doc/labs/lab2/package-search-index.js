@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"edu.bu.labs.routing"},{"l":"edu.bu.labs.routing.actions"},{"l":"edu.bu.labs.routing.agents"},{"l":"edu.bu.labs.routing.generator"},{"l":"edu.bu.labs.routing.ui"}];updateSearchResults();

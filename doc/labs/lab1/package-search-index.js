@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"edu.bu.labs.lab1"},{"l":"edu.bu.labs.lab1.agents"},{"l":"edu.bu.labs.lab1.ui"}];updateSearchResults();

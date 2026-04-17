@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"edu.bu.labs.rttt"},{"l":"edu.bu.labs.rttt.agents"},{"l":"edu.bu.labs.rttt.game"},{"l":"edu.bu.labs.rttt.rendering"},{"l":"edu.bu.labs.rttt.traversal"},{"l":"edu.bu.labs.rttt.utils"}];updateSearchResults();
