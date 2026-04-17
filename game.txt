@@ -1,0 +1,1463 @@
+Compiled from "Game.java"
+public class edu.bu.pas.uno.Game {
+  public static final int INIT_NUM_CARDS;
+
+  public static final int DEFAULT_MAX_NUM_MOVES;
+
+  private final int numPlayers;
+
+  private final int maxNumMoves;
+
+  private final edu.bu.pas.uno.enums.Observability observability;
+
+  private int moveIdx;
+
+  private edu.bu.pas.uno.Deck drawPile;
+
+  private edu.bu.pas.uno.DiscardPile discardPile;
+
+  private edu.bu.pas.uno.agents.Agent[] agents;
+
+  private edu.bu.pas.uno.Hand[] hands;
+
+  private edu.bu.pas.uno.Game$PlayerOrder playerOrder;
+
+  private edu.bu.pas.uno.enums.Color currentColor;
+
+  private edu.bu.pas.uno.Card lastPlayedCard;
+
+  private edu.bu.pas.uno.Game$UnresolvedCardBuffer unresolvedCards;
+
+  private java.util.Random random;
+
+  private edu.bu.pas.uno.Game$TimeoutTracker timeoutTracker;
+
+  private java.util.List<edu.bu.pas.uno.history.HistoryItem> history;
+
+  private edu.bu.pas.uno.ui.UnoListener listener;
+
+  public edu.bu.pas.uno.Game(edu.bu.pas.uno.enums.Observability, int, java.util.Random, edu.bu.pas.uno.agents.Agent...);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload         4
+       6: arraylength
+       7: iconst_2
+       8: if_icmplt     18
+      11: aload         4
+      13: arraylength
+      14: iconst_4
+      15: if_icmple     30
+      18: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      21: ldc           #13                 // String [ERROR] Game.Game: must be between 2 and 4 players (inclusive)
+      23: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      26: iconst_1
+      27: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+      30: new           #25                 // class edu/bu/pas/uno/Deck
+      33: dup
+      34: invokespecial #27                 // Method edu/bu/pas/uno/Deck."<init>":()V
+      37: astore        5
+      39: aload_3
+      40: ifnull        52
+      43: aload         5
+      45: aload_3
+      46: invokestatic  #28                 // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+      49: goto          57
+      52: aload         5
+      54: invokestatic  #34                 // Method java/util/Collections.shuffle:(Ljava/util/List;)V
+      57: new           #37                 // class edu/bu/pas/uno/DiscardPile
+      60: dup
+      61: invokespecial #39                 // Method edu/bu/pas/uno/DiscardPile."<init>":()V
+      64: astore        6
+      66: aload         4
+      68: arraylength
+      69: anewarray     #40                 // class edu/bu/pas/uno/Hand
+      72: astore        7
+      74: iconst_0
+      75: istore        8
+      77: iload         8
+      79: aload         4
+      81: arraylength
+      82: if_icmpge     113
+      85: aload         7
+      87: iload         8
+      89: new           #40                 // class edu/bu/pas/uno/Hand
+      92: dup
+      93: invokespecial #42                 // Method edu/bu/pas/uno/Hand."<init>":()V
+      96: aastore
+      97: aload         4
+      99: iload         8
+     101: aaload
+     102: iload         8
+     104: invokevirtual #43                 // Method edu/bu/pas/uno/agents/Agent.setLogicalPlayerIdx:(I)V
+     107: iinc          8, 1
+     110: goto          77
+     113: aload_0
+     114: aload         4
+     116: arraylength
+     117: putfield      #48                 // Field numPlayers:I
+     120: aload_0
+     121: iload_2
+     122: putfield      #54                 // Field maxNumMoves:I
+     125: aload_0
+     126: aload_1
+     127: putfield      #57                 // Field observability:Ledu/bu/pas/uno/enums/Observability;
+     130: aload_0
+     131: iconst_0
+     132: putfield      #61                 // Field moveIdx:I
+     135: aload_0
+     136: aload         5
+     138: putfield      #64                 // Field drawPile:Ledu/bu/pas/uno/Deck;
+     141: aload_0
+     142: aload         6
+     144: putfield      #68                 // Field discardPile:Ledu/bu/pas/uno/DiscardPile;
+     147: aload_0
+     148: aload         4
+     150: putfield      #72                 // Field agents:[Ledu/bu/pas/uno/agents/Agent;
+     153: aload_0
+     154: aload         7
+     156: putfield      #76                 // Field hands:[Ledu/bu/pas/uno/Hand;
+     159: aload_0
+     160: new           #80                 // class edu/bu/pas/uno/Game$PlayerOrder
+     163: dup
+     164: aload         4
+     166: invokespecial #82                 // Method edu/bu/pas/uno/Game$PlayerOrder."<init>":([Ledu/bu/pas/uno/agents/Agent;)V
+     169: putfield      #85                 // Field playerOrder:Ledu/bu/pas/uno/Game$PlayerOrder;
+     172: aload_0
+     173: aconst_null
+     174: putfield      #89                 // Field currentColor:Ledu/bu/pas/uno/enums/Color;
+     177: aload_0
+     178: aconst_null
+     179: putfield      #93                 // Field lastPlayedCard:Ledu/bu/pas/uno/Card;
+     182: aload_0
+     183: new           #97                 // class edu/bu/pas/uno/Game$UnresolvedCardBuffer
+     186: dup
+     187: invokespecial #99                 // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer."<init>":()V
+     190: putfield      #100                // Field unresolvedCards:Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     193: aload_0
+     194: aload_3
+     195: putfield      #104                // Field random:Ljava/util/Random;
+     198: aload_0
+     199: new           #108                // class java/util/LinkedList
+     202: dup
+     203: invokespecial #110                // Method java/util/LinkedList."<init>":()V
+     206: putfield      #111                // Field history:Ljava/util/List;
+     209: aload_0
+     210: new           #115                // class edu/bu/pas/uno/Game$TimeoutTracker
+     213: dup
+     214: aload         4
+     216: invokespecial #117                // Method edu/bu/pas/uno/Game$TimeoutTracker."<init>":([Ledu/bu/pas/uno/agents/Agent;)V
+     219: putfield      #118                // Field timeoutTracker:Ledu/bu/pas/uno/Game$TimeoutTracker;
+     222: aload_0
+     223: invokevirtual #122                // Method deal:()V
+     226: aload_0
+     227: invokevirtual #125                // Method makeInitialDiscardPile:()V
+     230: return
+
+  public edu.bu.pas.uno.Game(edu.bu.pas.uno.enums.Observability, java.util.Random, edu.bu.pas.uno.agents.Agent...);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: ldc           #128                // int 1000000
+       4: aload_2
+       5: aload_3
+       6: invokespecial #129                // Method "<init>":(Ledu/bu/pas/uno/enums/Observability;ILjava/util/Random;[Ledu/bu/pas/uno/agents/Agent;)V
+       9: return
+
+  public edu.bu.pas.uno.Game(java.util.Random, edu.bu.pas.uno.agents.Agent...);
+    Code:
+       0: aload_0
+       1: getstatic     #132                // Field edu/bu/pas/uno/enums/Observability.FULL:Ledu/bu/pas/uno/enums/Observability;
+       4: aload_1
+       5: aload_2
+       6: invokespecial #137                // Method "<init>":(Ledu/bu/pas/uno/enums/Observability;Ljava/util/Random;[Ledu/bu/pas/uno/agents/Agent;)V
+       9: return
+
+  public edu.bu.pas.uno.Game(edu.bu.pas.uno.Game$GameView);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aconst_null
+       3: invokespecial #140                // Method "<init>":(Ledu/bu/pas/uno/Game$GameView;[Ledu/bu/pas/uno/agents/Agent;)V
+       6: return
+
+  public edu.bu.pas.uno.Game(edu.bu.pas.uno.Game$GameView, edu.bu.pas.uno.agents.Agent...);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_1
+       5: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+       8: anewarray     #40                 // class edu/bu/pas/uno/Hand
+      11: astore_3
+      12: iconst_0
+      13: istore        4
+      15: iload         4
+      17: aload_1
+      18: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+      21: if_icmpge     47
+      24: aload_3
+      25: iload         4
+      27: new           #40                 // class edu/bu/pas/uno/Hand
+      30: dup
+      31: aload_1
+      32: iload         4
+      34: invokevirtual #149                // Method edu/bu/pas/uno/Game$GameView.getHandView:(I)Ledu/bu/pas/uno/Hand$HandView;
+      37: invokespecial #153                // Method edu/bu/pas/uno/Hand."<init>":(Ledu/bu/pas/uno/Hand$HandView;)V
+      40: aastore
+      41: iinc          4, 1
+      44: goto          15
+      47: new           #25                 // class edu/bu/pas/uno/Deck
+      50: dup
+      51: iconst_0
+      52: invokespecial #156                // Method edu/bu/pas/uno/Deck."<init>":(Z)V
+      55: astore        4
+      57: aload_1
+      58: invokevirtual #159                // Method edu/bu/pas/uno/Game$GameView.getDrawPile:()Ledu/bu/pas/uno/Deck;
+      61: invokevirtual #163                // Method edu/bu/pas/uno/Deck.iterator:()Ljava/util/Iterator;
+      64: astore        5
+      66: aload         5
+      68: invokeinterface #167,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      73: ifeq          148
+      76: aload         5
+      78: invokeinterface #173,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      83: checkcast     #177                // class edu/bu/pas/uno/Card
+      86: astore        6
+      88: aload         6
+      90: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+      93: getstatic     #183                // Field edu/bu/pas/uno/enums/Color.UNKNOWN:Ledu/bu/pas/uno/enums/Color;
+      96: if_acmpeq     110
+      99: aload         6
+     101: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     104: getstatic     #192                // Field edu/bu/pas/uno/enums/Value.UNKNOWN:Ledu/bu/pas/uno/enums/Value;
+     107: if_acmpne     122
+     110: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     113: ldc           #197                // String [ERROR] Game.Game: UNKNOWN cards cannot exist in Mutable Game objects
+     115: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     118: iconst_1
+     119: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     122: aload         4
+     124: new           #177                // class edu/bu/pas/uno/Card
+     127: dup
+     128: aload         6
+     130: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+     133: aload         6
+     135: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     138: invokespecial #199                // Method edu/bu/pas/uno/Card."<init>":(Ledu/bu/pas/uno/enums/Color;Ledu/bu/pas/uno/enums/Value;)V
+     141: invokevirtual #202                // Method edu/bu/pas/uno/Deck.add:(Ljava/lang/Object;)Z
+     144: pop
+     145: goto          66
+     148: aconst_null
+     149: astore        5
+     151: aload_2
+     152: ifnull        274
+     155: aload_1
+     156: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     159: anewarray     #44                 // class edu/bu/pas/uno/agents/Agent
+     162: astore        5
+     164: aload_2
+     165: arraylength
+     166: aload_1
+     167: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     170: if_icmpeq     192
+     173: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     176: aload_1
+     177: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     180: invokedynamic #206,  0            // InvokeDynamic #0:makeConcatWithConstants:(I)Ljava/lang/String;
+     185: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     188: iconst_m1
+     189: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     192: iconst_0
+     193: istore        6
+     195: iload         6
+     197: aload_1
+     198: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     201: if_icmpge     274
+     204: aload_2
+     205: iload         6
+     207: aaload
+     208: astore        7
+     210: aload_1
+     211: invokevirtual #210                // Method edu/bu/pas/uno/Game$GameView.getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     214: iload         6
+     216: invokevirtual #214                // Method edu/bu/pas/uno/Game$PlayerOrder.getAgentIdx:(I)I
+     219: aload         7
+     221: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     224: if_icmpeq     254
+     227: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     230: aload         7
+     232: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     235: iload         6
+     237: aload         7
+     239: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     242: invokedynamic #221,  0            // InvokeDynamic #1:makeConcatWithConstants:(III)Ljava/lang/String;
+     247: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     250: iconst_m1
+     251: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     254: aload         7
+     256: iload         6
+     258: invokevirtual #43                 // Method edu/bu/pas/uno/agents/Agent.setLogicalPlayerIdx:(I)V
+     261: aload         5
+     263: iload         6
+     265: aload         7
+     267: aastore
+     268: iinc          6, 1
+     271: goto          195
+     274: aload_0
+     275: aload_1
+     276: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     279: putfield      #48                 // Field numPlayers:I
+     282: aload_0
+     283: aload_1
+     284: invokevirtual #224                // Method edu/bu/pas/uno/Game$GameView.getMaxNumMoves:()I
+     287: putfield      #54                 // Field maxNumMoves:I
+     290: aload_0
+     291: aload_1
+     292: invokevirtual #227                // Method edu/bu/pas/uno/Game$GameView.getObservability:()Ledu/bu/pas/uno/enums/Observability;
+     295: putfield      #57                 // Field observability:Ledu/bu/pas/uno/enums/Observability;
+     298: aload_0
+     299: aload_1
+     300: invokevirtual #231                // Method edu/bu/pas/uno/Game$GameView.getCurrentMoveIdx:()I
+     303: putfield      #61                 // Field moveIdx:I
+     306: aload_0
+     307: aload         4
+     309: putfield      #64                 // Field drawPile:Ledu/bu/pas/uno/Deck;
+     312: aload_0
+     313: new           #37                 // class edu/bu/pas/uno/DiscardPile
+     316: dup
+     317: aload_1
+     318: invokevirtual #234                // Method edu/bu/pas/uno/Game$GameView.getDiscardPile:()Ledu/bu/pas/uno/DiscardPile$DiscardPileView;
+     321: invokespecial #238                // Method edu/bu/pas/uno/DiscardPile."<init>":(Ledu/bu/pas/uno/DiscardPile$DiscardPileView;)V
+     324: putfield      #68                 // Field discardPile:Ledu/bu/pas/uno/DiscardPile;
+     327: aload_0
+     328: aload         5
+     330: putfield      #72                 // Field agents:[Ledu/bu/pas/uno/agents/Agent;
+     333: aload_0
+     334: aload_3
+     335: putfield      #76                 // Field hands:[Ledu/bu/pas/uno/Hand;
+     338: aload_0
+     339: new           #80                 // class edu/bu/pas/uno/Game$PlayerOrder
+     342: dup
+     343: aload_1
+     344: invokevirtual #210                // Method edu/bu/pas/uno/Game$GameView.getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     347: invokespecial #241                // Method edu/bu/pas/uno/Game$PlayerOrder."<init>":(Ledu/bu/pas/uno/Game$PlayerOrder;)V
+     350: putfield      #85                 // Field playerOrder:Ledu/bu/pas/uno/Game$PlayerOrder;
+     353: aload_0
+     354: aload_1
+     355: invokevirtual #244                // Method edu/bu/pas/uno/Game$GameView.getCurrentColor:()Ledu/bu/pas/uno/enums/Color;
+     358: putfield      #89                 // Field currentColor:Ledu/bu/pas/uno/enums/Color;
+     361: aload_0
+     362: aload_1
+     363: invokevirtual #247                // Method edu/bu/pas/uno/Game$GameView.getLastPlayedCard:()Ledu/bu/pas/uno/Card;
+     366: putfield      #93                 // Field lastPlayedCard:Ledu/bu/pas/uno/Card;
+     369: aload_0
+     370: new           #97                 // class edu/bu/pas/uno/Game$UnresolvedCardBuffer
+     373: dup
+     374: aload_1
+     375: invokevirtual #251                // Method edu/bu/pas/uno/Game$GameView.getUnresolvedCards:()Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     378: invokespecial #255                // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer."<init>":(Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;)V
+     381: putfield      #100                // Field unresolvedCards:Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     384: aload_0
+     385: new           #258                // class java/util/Random
+     388: dup
+     389: invokespecial #260                // Method java/util/Random."<init>":()V
+     392: putfield      #104                // Field random:Ljava/util/Random;
+     395: aload_0
+     396: aload_1
+     397: invokevirtual #261                // Method edu/bu/pas/uno/Game$GameView.getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     400: putfield      #118                // Field timeoutTracker:Ledu/bu/pas/uno/Game$TimeoutTracker;
+     403: aload_0
+     404: aconst_null
+     405: putfield      #111                // Field history:Ljava/util/List;
+     408: aload_0
+     409: aconst_null
+     410: putfield      #265                // Field listener:Ledu/bu/pas/uno/ui/UnoListener;
+     413: return
+
+  public edu.bu.pas.uno.Game(edu.bu.pas.uno.Deck, edu.bu.pas.uno.Hand[], edu.bu.pas.uno.Game$GameView, edu.bu.pas.uno.agents.Agent[]);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_1
+       5: invokevirtual #163                // Method edu/bu/pas/uno/Deck.iterator:()Ljava/util/Iterator;
+       8: astore        5
+      10: aload         5
+      12: invokeinterface #167,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      17: ifeq          70
+      20: aload         5
+      22: invokeinterface #173,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      27: checkcast     #177                // class edu/bu/pas/uno/Card
+      30: astore        6
+      32: aload         6
+      34: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+      37: getstatic     #183                // Field edu/bu/pas/uno/enums/Color.UNKNOWN:Ledu/bu/pas/uno/enums/Color;
+      40: if_acmpeq     54
+      43: aload         6
+      45: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+      48: getstatic     #192                // Field edu/bu/pas/uno/enums/Value.UNKNOWN:Ledu/bu/pas/uno/enums/Value;
+      51: if_acmpne     67
+      54: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      57: ldc_w         #269                // String [ERROR] Game.Game: UNKNOWN card found in the deck...UNKNOWN cards cannot exist in Mutable Game objects
+      60: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      63: iconst_1
+      64: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+      67: goto          10
+      70: aload_2
+      71: arraylength
+      72: aload_3
+      73: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+      76: if_icmpeq     100
+      79: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      82: aload_3
+      83: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+      86: aload_2
+      87: arraylength
+      88: invokedynamic #271,  0            // InvokeDynamic #2:makeConcatWithConstants:(II)Ljava/lang/String;
+      93: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      96: iconst_1
+      97: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     100: aload_2
+     101: astore        5
+     103: aload         5
+     105: arraylength
+     106: istore        6
+     108: iconst_0
+     109: istore        7
+     111: iload         7
+     113: iload         6
+     115: if_icmpge     213
+     118: aload         5
+     120: iload         7
+     122: aaload
+     123: astore        8
+     125: aload         8
+     127: ifnonnull     143
+     130: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     133: ldc_w         #274                // String [ERROR] Game.Game: provided Hand array cannot have a \'null\' Hand
+     136: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     139: iconst_1
+     140: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     143: iconst_0
+     144: istore        9
+     146: iload         9
+     148: aload         8
+     150: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+     153: if_icmpge     207
+     156: aload         8
+     158: iload         9
+     160: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     163: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+     166: getstatic     #183                // Field edu/bu/pas/uno/enums/Color.UNKNOWN:Ledu/bu/pas/uno/enums/Color;
+     169: if_acmpeq     188
+     172: aload         8
+     174: iload         9
+     176: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     179: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     182: getstatic     #192                // Field edu/bu/pas/uno/enums/Value.UNKNOWN:Ledu/bu/pas/uno/enums/Value;
+     185: if_acmpne     201
+     188: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     191: ldc_w         #283                // String [ERROR] Game.Game: UNKNOWN card found in a hand...UNKNOWN cards cannot exist in Mutable Game objects
+     194: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     197: iconst_1
+     198: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     201: iinc          9, 1
+     204: goto          146
+     207: iinc          7, 1
+     210: goto          111
+     213: aconst_null
+     214: astore        5
+     216: aload         4
+     218: ifnull        342
+     221: aload_3
+     222: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     225: anewarray     #44                 // class edu/bu/pas/uno/agents/Agent
+     228: astore        5
+     230: aload         4
+     232: arraylength
+     233: aload_3
+     234: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     237: if_icmpeq     259
+     240: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     243: aload_3
+     244: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     247: invokedynamic #206,  0            // InvokeDynamic #0:makeConcatWithConstants:(I)Ljava/lang/String;
+     252: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     255: iconst_m1
+     256: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     259: iconst_0
+     260: istore        6
+     262: iload         6
+     264: aload_3
+     265: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     268: if_icmpge     342
+     271: aload         4
+     273: iload         6
+     275: aaload
+     276: astore        7
+     278: aload_3
+     279: invokevirtual #210                // Method edu/bu/pas/uno/Game$GameView.getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     282: iload         6
+     284: invokevirtual #214                // Method edu/bu/pas/uno/Game$PlayerOrder.getAgentIdx:(I)I
+     287: aload         7
+     289: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     292: if_icmpeq     322
+     295: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     298: aload         7
+     300: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     303: iload         6
+     305: aload         7
+     307: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     310: invokedynamic #221,  0            // InvokeDynamic #1:makeConcatWithConstants:(III)Ljava/lang/String;
+     315: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     318: iconst_m1
+     319: invokestatic  #21                 // Method java/lang/System.exit:(I)V
+     322: aload         7
+     324: iload         6
+     326: invokevirtual #43                 // Method edu/bu/pas/uno/agents/Agent.setLogicalPlayerIdx:(I)V
+     329: aload         5
+     331: iload         6
+     333: aload         7
+     335: aastore
+     336: iinc          6, 1
+     339: goto          262
+     342: aload_0
+     343: aload_3
+     344: invokevirtual #143                // Method edu/bu/pas/uno/Game$GameView.getNumPlayers:()I
+     347: putfield      #48                 // Field numPlayers:I
+     350: aload_0
+     351: aload_3
+     352: invokevirtual #224                // Method edu/bu/pas/uno/Game$GameView.getMaxNumMoves:()I
+     355: putfield      #54                 // Field maxNumMoves:I
+     358: aload_0
+     359: aload_3
+     360: invokevirtual #227                // Method edu/bu/pas/uno/Game$GameView.getObservability:()Ledu/bu/pas/uno/enums/Observability;
+     363: putfield      #57                 // Field observability:Ledu/bu/pas/uno/enums/Observability;
+     366: aload_0
+     367: aload_3
+     368: invokevirtual #231                // Method edu/bu/pas/uno/Game$GameView.getCurrentMoveIdx:()I
+     371: putfield      #61                 // Field moveIdx:I
+     374: aload_0
+     375: aload_1
+     376: putfield      #64                 // Field drawPile:Ledu/bu/pas/uno/Deck;
+     379: aload_0
+     380: new           #37                 // class edu/bu/pas/uno/DiscardPile
+     383: dup
+     384: aload_3
+     385: invokevirtual #234                // Method edu/bu/pas/uno/Game$GameView.getDiscardPile:()Ledu/bu/pas/uno/DiscardPile$DiscardPileView;
+     388: invokespecial #238                // Method edu/bu/pas/uno/DiscardPile."<init>":(Ledu/bu/pas/uno/DiscardPile$DiscardPileView;)V
+     391: putfield      #68                 // Field discardPile:Ledu/bu/pas/uno/DiscardPile;
+     394: aload_0
+     395: aload         5
+     397: putfield      #72                 // Field agents:[Ledu/bu/pas/uno/agents/Agent;
+     400: aload_0
+     401: aload_2
+     402: putfield      #76                 // Field hands:[Ledu/bu/pas/uno/Hand;
+     405: aload_0
+     406: new           #80                 // class edu/bu/pas/uno/Game$PlayerOrder
+     409: dup
+     410: aload_3
+     411: invokevirtual #210                // Method edu/bu/pas/uno/Game$GameView.getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     414: invokespecial #241                // Method edu/bu/pas/uno/Game$PlayerOrder."<init>":(Ledu/bu/pas/uno/Game$PlayerOrder;)V
+     417: putfield      #85                 // Field playerOrder:Ledu/bu/pas/uno/Game$PlayerOrder;
+     420: aload_0
+     421: aload_3
+     422: invokevirtual #244                // Method edu/bu/pas/uno/Game$GameView.getCurrentColor:()Ledu/bu/pas/uno/enums/Color;
+     425: putfield      #89                 // Field currentColor:Ledu/bu/pas/uno/enums/Color;
+     428: aload_0
+     429: aload_3
+     430: invokevirtual #247                // Method edu/bu/pas/uno/Game$GameView.getLastPlayedCard:()Ledu/bu/pas/uno/Card;
+     433: putfield      #93                 // Field lastPlayedCard:Ledu/bu/pas/uno/Card;
+     436: aload_0
+     437: new           #97                 // class edu/bu/pas/uno/Game$UnresolvedCardBuffer
+     440: dup
+     441: aload_3
+     442: invokevirtual #251                // Method edu/bu/pas/uno/Game$GameView.getUnresolvedCards:()Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     445: invokespecial #255                // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer."<init>":(Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;)V
+     448: putfield      #100                // Field unresolvedCards:Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     451: aload_0
+     452: new           #258                // class java/util/Random
+     455: dup
+     456: invokespecial #260                // Method java/util/Random."<init>":()V
+     459: putfield      #104                // Field random:Ljava/util/Random;
+     462: aload_0
+     463: aload_3
+     464: invokevirtual #261                // Method edu/bu/pas/uno/Game$GameView.getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     467: putfield      #118                // Field timeoutTracker:Ledu/bu/pas/uno/Game$TimeoutTracker;
+     470: aload_0
+     471: aconst_null
+     472: putfield      #111                // Field history:Ljava/util/List;
+     475: aload_0
+     476: aconst_null
+     477: putfield      #265                // Field listener:Ledu/bu/pas/uno/ui/UnoListener;
+     480: return
+
+  public final int getNumPlayers();
+    Code:
+       0: aload_0
+       1: getfield      #48                 // Field numPlayers:I
+       4: ireturn
+
+  public final int getMaxNumMoves();
+    Code:
+       0: aload_0
+       1: getfield      #54                 // Field maxNumMoves:I
+       4: ireturn
+
+  public final edu.bu.pas.uno.enums.Observability getObservability();
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field observability:Ledu/bu/pas/uno/enums/Observability;
+       4: areturn
+
+  public final int getCurrentMoveIdx();
+    Code:
+       0: aload_0
+       1: getfield      #61                 // Field moveIdx:I
+       4: ireturn
+
+  public final edu.bu.pas.uno.Deck getDrawPile();
+    Code:
+       0: aload_0
+       1: getfield      #64                 // Field drawPile:Ledu/bu/pas/uno/Deck;
+       4: areturn
+
+  public final edu.bu.pas.uno.DiscardPile getDiscardPile();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field discardPile:Ledu/bu/pas/uno/DiscardPile;
+       4: areturn
+
+  private final edu.bu.pas.uno.agents.Agent[] getAgents();
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field agents:[Ledu/bu/pas/uno/agents/Agent;
+       4: areturn
+
+  public final edu.bu.pas.uno.agents.Agent getCurrentAgent();
+    Code:
+       0: aload_0
+       1: invokevirtual #285                // Method getAgents:()[Ledu/bu/pas/uno/agents/Agent;
+       4: aload_0
+       5: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+       8: invokevirtual #290                // Method edu/bu/pas/uno/Game$PlayerOrder.getCurrentLogicalPlayerIdx:()I
+      11: aaload
+      12: areturn
+
+  public final edu.bu.pas.uno.agents.Agent getAgent(int);
+    Code:
+       0: aload_0
+       1: invokevirtual #285                // Method getAgents:()[Ledu/bu/pas/uno/agents/Agent;
+       4: iload_1
+       5: aaload
+       6: areturn
+
+  private final edu.bu.pas.uno.Hand[] getHands();
+    Code:
+       0: aload_0
+       1: getfield      #76                 // Field hands:[Ledu/bu/pas/uno/Hand;
+       4: areturn
+
+  public final edu.bu.pas.uno.Hand getHand(int);
+    Code:
+       0: aload_0
+       1: invokevirtual #293                // Method getHands:()[Ledu/bu/pas/uno/Hand;
+       4: iload_1
+       5: aaload
+       6: areturn
+
+  public final edu.bu.pas.uno.Game$PlayerOrder getPlayerOrder();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field playerOrder:Ledu/bu/pas/uno/Game$PlayerOrder;
+       4: areturn
+
+  public final edu.bu.pas.uno.enums.Color getCurrentColor();
+    Code:
+       0: aload_0
+       1: getfield      #89                 // Field currentColor:Ledu/bu/pas/uno/enums/Color;
+       4: areturn
+
+  public final edu.bu.pas.uno.Card getLastPlayedCard();
+    Code:
+       0: aload_0
+       1: getfield      #93                 // Field lastPlayedCard:Ledu/bu/pas/uno/Card;
+       4: areturn
+
+  public final edu.bu.pas.uno.Game$UnresolvedCardBuffer getUnresolvedCards();
+    Code:
+       0: aload_0
+       1: getfield      #100                // Field unresolvedCards:Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+       4: areturn
+
+  public final edu.bu.pas.uno.Hand getCurrentPlayerHand();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+       5: invokevirtual #290                // Method edu/bu/pas/uno/Game$PlayerOrder.getCurrentLogicalPlayerIdx:()I
+       8: invokevirtual #297                // Method getHand:(I)Ledu/bu/pas/uno/Hand;
+      11: areturn
+
+  public final java.util.Random getRandom();
+    Code:
+       0: aload_0
+       1: getfield      #104                // Field random:Ljava/util/Random;
+       4: areturn
+
+  public final edu.bu.pas.uno.Game$TimeoutTracker getTimeoutTracker();
+    Code:
+       0: aload_0
+       1: getfield      #118                // Field timeoutTracker:Ledu/bu/pas/uno/Game$TimeoutTracker;
+       4: areturn
+
+  public final java.util.List<edu.bu.pas.uno.history.HistoryItem> getHistory();
+    Code:
+       0: aload_0
+       1: getfield      #111                // Field history:Ljava/util/List;
+       4: areturn
+
+  public void setCurrentColor(edu.bu.pas.uno.enums.Color);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #89                 // Field currentColor:Ledu/bu/pas/uno/enums/Color;
+       5: return
+
+  public void setLastPlayedCard(edu.bu.pas.uno.Card);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #93                 // Field lastPlayedCard:Ledu/bu/pas/uno/Card;
+       5: return
+
+  public void setCurrentMoveIdx(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #61                 // Field moveIdx:I
+       5: return
+
+  public edu.bu.pas.uno.Game$GameView getView(int);
+    Code:
+       0: new           #144                // class edu/bu/pas/uno/Game$GameView
+       3: dup
+       4: aload_0
+       5: iload_1
+       6: invokespecial #301                // Method edu/bu/pas/uno/Game$GameView."<init>":(Ledu/bu/pas/uno/Game;I)V
+       9: areturn
+
+  public edu.bu.pas.uno.Game$GameView getOmniscientView();
+    Code:
+       0: new           #144                // class edu/bu/pas/uno/Game$GameView
+       3: dup
+       4: aload_0
+       5: iconst_m1
+       6: iconst_1
+       7: invokespecial #304                // Method edu/bu/pas/uno/Game$GameView."<init>":(Ledu/bu/pas/uno/Game;IZ)V
+      10: areturn
+
+  public edu.bu.pas.uno.ui.UnoListener getListener();
+    Code:
+       0: aload_0
+       1: getfield      #265                // Field listener:Ledu/bu/pas/uno/ui/UnoListener;
+       4: areturn
+
+  public void setListener(edu.bu.pas.uno.ui.UnoListener);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #265                // Field listener:Ledu/bu/pas/uno/ui/UnoListener;
+       5: return
+
+  public final void deal();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: bipush        7
+       5: if_icmpge     48
+       8: iconst_0
+       9: istore_2
+      10: iload_2
+      11: aload_0
+      12: invokevirtual #307                // Method getNumPlayers:()I
+      15: if_icmpge     42
+      18: aload_0
+      19: iload_2
+      20: invokevirtual #297                // Method getHand:(I)Ledu/bu/pas/uno/Hand;
+      23: aload_0
+      24: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      27: invokevirtual #309                // Method edu/bu/pas/uno/Deck.pop:()Ljava/lang/Object;
+      30: checkcast     #177                // class edu/bu/pas/uno/Card
+      33: invokevirtual #312                // Method edu/bu/pas/uno/Hand.add:(Ledu/bu/pas/uno/Card;)V
+      36: iinc          2, 1
+      39: goto          10
+      42: iinc          1, 1
+      45: goto          2
+      48: return
+
+  public final edu.bu.pas.uno.enums.Color chooseRandomColor();
+    Code:
+       0: iconst_4
+       1: anewarray     #184                // class edu/bu/pas/uno/enums/Color
+       4: dup
+       5: iconst_0
+       6: getstatic     #315                // Field edu/bu/pas/uno/enums/Color.YELLOW:Ledu/bu/pas/uno/enums/Color;
+       9: aastore
+      10: dup
+      11: iconst_1
+      12: getstatic     #318                // Field edu/bu/pas/uno/enums/Color.GREEN:Ledu/bu/pas/uno/enums/Color;
+      15: aastore
+      16: dup
+      17: iconst_2
+      18: getstatic     #321                // Field edu/bu/pas/uno/enums/Color.RED:Ledu/bu/pas/uno/enums/Color;
+      21: aastore
+      22: dup
+      23: iconst_3
+      24: getstatic     #324                // Field edu/bu/pas/uno/enums/Color.BLUE:Ledu/bu/pas/uno/enums/Color;
+      27: aastore
+      28: astore_1
+      29: aload_1
+      30: aload_0
+      31: invokevirtual #327                // Method getRandom:()Ljava/util/Random;
+      34: aload_1
+      35: arraylength
+      36: invokevirtual #331                // Method java/util/Random.nextInt:(I)I
+      39: aaload
+      40: areturn
+
+  public final void makeInitialDiscardPile();
+    Code:
+       0: aload_0
+       1: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+       4: invokevirtual #337                // Method edu/bu/pas/uno/DiscardPile.size:()I
+       7: ifne          86
+      10: aload_0
+      11: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      14: aload_0
+      15: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      18: invokevirtual #309                // Method edu/bu/pas/uno/Deck.pop:()Ljava/lang/Object;
+      21: checkcast     #177                // class edu/bu/pas/uno/Card
+      24: invokevirtual #338                // Method edu/bu/pas/uno/DiscardPile.push:(Ledu/bu/pas/uno/Card;)V
+      27: aload_0
+      28: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      31: invokevirtual #341                // Method edu/bu/pas/uno/DiscardPile.peek:()Ledu/bu/pas/uno/Card;
+      34: invokevirtual #344                // Method edu/bu/pas/uno/Card.isAction:()Z
+      37: ifeq          0
+      40: aload_0
+      41: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      44: aload_0
+      45: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      48: invokevirtual #347                // Method edu/bu/pas/uno/DiscardPile.pop:()Ledu/bu/pas/uno/Card;
+      51: invokevirtual #202                // Method edu/bu/pas/uno/Deck.add:(Ljava/lang/Object;)Z
+      54: pop
+      55: aload_0
+      56: invokevirtual #327                // Method getRandom:()Ljava/util/Random;
+      59: ifnull        76
+      62: aload_0
+      63: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      66: aload_0
+      67: invokevirtual #327                // Method getRandom:()Ljava/util/Random;
+      70: invokestatic  #28                 // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+      73: goto          0
+      76: aload_0
+      77: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      80: invokestatic  #34                 // Method java/util/Collections.shuffle:(Ljava/util/List;)V
+      83: goto          0
+      86: aload_0
+      87: aload_0
+      88: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      91: invokevirtual #341                // Method edu/bu/pas/uno/DiscardPile.peek:()Ledu/bu/pas/uno/Card;
+      94: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+      97: invokevirtual #349                // Method setCurrentColor:(Ledu/bu/pas/uno/enums/Color;)V
+     100: aload_0
+     101: aload_0
+     102: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+     105: invokevirtual #341                // Method edu/bu/pas/uno/DiscardPile.peek:()Ledu/bu/pas/uno/Card;
+     108: invokevirtual #353                // Method setLastPlayedCard:(Ledu/bu/pas/uno/Card;)V
+     111: return
+
+  public void shuffleDiscardPileIntoDrawPile();
+    Code:
+       0: aload_0
+       1: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+       4: invokevirtual #347                // Method edu/bu/pas/uno/DiscardPile.pop:()Ledu/bu/pas/uno/Card;
+       7: astore_1
+       8: aload_0
+       9: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      12: aload_0
+      13: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      16: invokevirtual #356                // Method edu/bu/pas/uno/DiscardPile.getPile:()Ljava/util/Stack;
+      19: invokevirtual #360                // Method edu/bu/pas/uno/Deck.addAll:(Ljava/util/Collection;)Z
+      22: pop
+      23: aload_0
+      24: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      27: invokevirtual #356                // Method edu/bu/pas/uno/DiscardPile.getPile:()Ljava/util/Stack;
+      30: invokevirtual #364                // Method java/util/Stack.clear:()V
+      33: aload_0
+      34: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      37: aload_0
+      38: invokevirtual #327                // Method getRandom:()Ljava/util/Random;
+      41: invokestatic  #28                 // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+      44: aload_0
+      45: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+      48: aload_1
+      49: invokevirtual #338                // Method edu/bu/pas/uno/DiscardPile.push:(Ledu/bu/pas/uno/Card;)V
+      52: return
+
+  public final int drawCard(edu.bu.pas.uno.Hand);
+    Code:
+       0: aload_0
+       1: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+       4: invokevirtual #369                // Method edu/bu/pas/uno/Deck.isEmpty:()Z
+       7: ifeq          14
+      10: aload_0
+      11: invokevirtual #372                // Method shuffleDiscardPileIntoDrawPile:()V
+      14: aload_0
+      15: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      18: invokevirtual #309                // Method edu/bu/pas/uno/Deck.pop:()Ljava/lang/Object;
+      21: checkcast     #177                // class edu/bu/pas/uno/Card
+      24: astore_2
+      25: aload_1
+      26: aload_2
+      27: invokevirtual #312                // Method edu/bu/pas/uno/Hand.add:(Ledu/bu/pas/uno/Card;)V
+      30: aload_1
+      31: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+      34: iconst_1
+      35: isub
+      36: ireturn
+
+  public final void drawTotal(edu.bu.pas.uno.Hand, int);
+    Code:
+       0: iload_2
+       1: ifle          38
+       4: aload_0
+       5: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+       8: invokevirtual #369                // Method edu/bu/pas/uno/Deck.isEmpty:()Z
+      11: ifeq          18
+      14: aload_0
+      15: invokevirtual #372                // Method shuffleDiscardPileIntoDrawPile:()V
+      18: aload_1
+      19: aload_0
+      20: invokevirtual #308                // Method getDrawPile:()Ledu/bu/pas/uno/Deck;
+      23: invokevirtual #309                // Method edu/bu/pas/uno/Deck.pop:()Ljava/lang/Object;
+      26: checkcast     #177                // class edu/bu/pas/uno/Card
+      29: invokevirtual #312                // Method edu/bu/pas/uno/Hand.add:(Ledu/bu/pas/uno/Card;)V
+      32: iinc          2, -1
+      35: goto          0
+      38: aload_0
+      39: invokevirtual #375                // Method getUnresolvedCards:()Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+      42: invokevirtual #376                // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer.clear:()V
+      45: return
+
+  private final edu.bu.pas.uno.moves.Move checkMove(edu.bu.pas.uno.agents.Agent, edu.bu.pas.uno.Hand, edu.bu.pas.uno.moves.Move);
+    Code:
+       0: aload_3
+       1: astore        4
+       3: aload_3
+       4: invokevirtual #377                // Method edu/bu/pas/uno/moves/Move.getPlayerIdx:()I
+       7: aload_1
+       8: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      11: if_icmpeq     47
+      14: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      17: ldc_w         #380                // String [ERROR] Game.checkMove: player idx of the move must be the same as the player who is making that move...counting as a timeout and skipping your turn
+      20: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      23: aload_0
+      24: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+      27: aload_0
+      28: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+      31: aload_1
+      32: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      35: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+      38: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+      41: aconst_null
+      42: astore        4
+      44: goto          229
+      47: aload_3
+      48: invokevirtual #389                // Method edu/bu/pas/uno/moves/Move.getCardToPlayIdx:()I
+      51: istore        5
+      53: iload         5
+      55: iflt          67
+      58: iload         5
+      60: aload_2
+      61: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+      64: if_icmplt     100
+      67: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      70: ldc_w         #392                // String [ERROR] Game.checkMove: cardIdx must be in bounds of your hand...counting as a timeout and skipping your turn
+      73: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      76: aload_0
+      77: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+      80: aload_0
+      81: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+      84: aload_1
+      85: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      88: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+      91: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+      94: aconst_null
+      95: astore        4
+      97: goto          229
+     100: aload_2
+     101: iload         5
+     103: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     106: astore        6
+     108: aload         6
+     110: invokevirtual #179                // Method edu/bu/pas/uno/Card.color:()Ledu/bu/pas/uno/enums/Color;
+     113: getstatic     #183                // Field edu/bu/pas/uno/enums/Color.UNKNOWN:Ledu/bu/pas/uno/enums/Color;
+     116: if_acmpeq     130
+     119: aload         6
+     121: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     124: getstatic     #192                // Field edu/bu/pas/uno/enums/Value.UNKNOWN:Ledu/bu/pas/uno/enums/Value;
+     127: if_acmpne     160
+     130: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     133: ldc_w         #394                // String [ERROR] Game.checkMove: played card cannot have UNKNOWN color/value...counting as a timeout and skipping your turn
+     136: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     139: aload_0
+     140: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     143: aload_0
+     144: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     147: aload_1
+     148: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     151: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+     154: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+     157: aconst_null
+     158: astore        4
+     160: aload         6
+     162: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     165: getstatic     #396                // Field edu/bu/pas/uno/enums/Value.WILD:Ledu/bu/pas/uno/enums/Value;
+     168: if_acmpeq     182
+     171: aload         6
+     173: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     176: getstatic     #399                // Field edu/bu/pas/uno/enums/Value.WILD_DRAW_FOUR:Ledu/bu/pas/uno/enums/Value;
+     179: if_acmpne     229
+     182: aload_3
+     183: invokevirtual #402                // Method edu/bu/pas/uno/moves/Move.getNewColorIfWild:()Ledu/bu/pas/uno/enums/Color;
+     186: ifnull        199
+     189: aload_3
+     190: invokevirtual #402                // Method edu/bu/pas/uno/moves/Move.getNewColorIfWild:()Ledu/bu/pas/uno/enums/Color;
+     193: getstatic     #183                // Field edu/bu/pas/uno/enums/Color.UNKNOWN:Ledu/bu/pas/uno/enums/Color;
+     196: if_acmpne     229
+     199: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+     202: ldc_w         #405                // String [ERROR] Game.checkMove: when playing a WILD or WILD_DRAW_FOUR the new color field inside the Move must be a legal color...counting as a timeout and skipping your turn
+     205: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     208: aload_0
+     209: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     212: aload_0
+     213: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     216: aload_1
+     217: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     220: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+     223: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+     226: aconst_null
+     227: astore        4
+     229: aload         4
+     231: areturn
+
+  public final void addToHistory(edu.bu.pas.uno.history.HistoryItem);
+    Code:
+       0: aload_0
+       1: invokevirtual #407                // Method getHistory:()Ljava/util/List;
+       4: ifnull        17
+       7: aload_0
+       8: invokevirtual #407                // Method getHistory:()Ljava/util/List;
+      11: aload_1
+      12: invokeinterface #411,  2          // InterfaceMethod java/util/List.addFirst:(Ljava/lang/Object;)V
+      17: return
+
+  public final edu.bu.pas.uno.moves.Move getMove();
+    Code:
+       0: aconst_null
+       1: astore_1
+       2: aload_0
+       3: aload_0
+       4: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+       7: invokevirtual #290                // Method edu/bu/pas/uno/Game$PlayerOrder.getCurrentLogicalPlayerIdx:()I
+      10: invokevirtual #297                // Method getHand:(I)Ledu/bu/pas/uno/Hand;
+      13: astore_2
+      14: aload_0
+      15: invokevirtual #417                // Method getCurrentAgent:()Ledu/bu/pas/uno/agents/Agent;
+      18: astore_3
+      19: aconst_null
+      20: astore        4
+      22: aload_2
+      23: aload_0
+      24: invokevirtual #421                // Method edu/bu/pas/uno/Hand.hasLegalMoves:(Ledu/bu/pas/uno/Game;)Z
+      27: ifeq          131
+      30: aload_3
+      31: aload_0
+      32: aload_3
+      33: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      36: invokevirtual #425                // Method getView:(I)Ledu/bu/pas/uno/Game$GameView;
+      39: invokevirtual #429                // Method edu/bu/pas/uno/agents/Agent.chooseCardToPlay:(Ledu/bu/pas/uno/Game$GameView;)Ledu/bu/pas/uno/moves/Move;
+      42: astore_1
+      43: aload_1
+      44: ifnonnull     81
+      47: aload_0
+      48: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+      51: aload_0
+      52: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+      55: aload_3
+      56: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      59: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+      62: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+      65: new           #433                // class edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem
+      68: dup
+      69: aload_3
+      70: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      73: invokespecial #435                // Method edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem."<init>":(I)V
+      76: astore        4
+      78: goto          424
+      81: aload_0
+      82: aload_3
+      83: aload_2
+      84: aload_1
+      85: invokevirtual #437                // Method checkMove:(Ledu/bu/pas/uno/agents/Agent;Ledu/bu/pas/uno/Hand;Ledu/bu/pas/uno/moves/Move;)Ledu/bu/pas/uno/moves/Move;
+      88: astore_1
+      89: aload_1
+      90: ifnonnull     107
+      93: new           #433                // class edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem
+      96: dup
+      97: aload_3
+      98: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     101: invokespecial #435                // Method edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem."<init>":(I)V
+     104: goto          126
+     107: new           #441                // class edu/bu/pas/uno/history/PlayedCardHistoryItem
+     110: dup
+     111: aload_3
+     112: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     115: aload_2
+     116: aload_1
+     117: invokevirtual #389                // Method edu/bu/pas/uno/moves/Move.getCardToPlayIdx:()I
+     120: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     123: invokespecial #443                // Method edu/bu/pas/uno/history/PlayedCardHistoryItem."<init>":(ILedu/bu/pas/uno/Card;)V
+     126: astore        4
+     128: goto          424
+     131: aload_0
+     132: invokevirtual #375                // Method getUnresolvedCards:()Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     135: invokevirtual #446                // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer.isEmpty:()Z
+     138: ifeq          318
+     141: aload_0
+     142: aload_2
+     143: invokevirtual #447                // Method drawCard:(Ledu/bu/pas/uno/Hand;)I
+     146: istore        5
+     148: aload_0
+     149: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     152: ifnull        182
+     155: aload_0
+     156: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     159: aload_0
+     160: aload_3
+     161: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     164: iconst_1
+     165: anewarray     #177                // class edu/bu/pas/uno/Card
+     168: dup
+     169: iconst_0
+     170: aload_2
+     171: iload         5
+     173: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     176: aastore
+     177: invokeinterface #455,  4          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onCardsDrawn:(Ledu/bu/pas/uno/Game;I[Ledu/bu/pas/uno/Card;)V
+     182: aload_2
+     183: iload         5
+     185: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     188: aload_0
+     189: invokevirtual #461                // Method edu/bu/pas/uno/Card.canBePlayedAsDrawCard:(Ledu/bu/pas/uno/Game;)Z
+     192: ifeq          302
+     195: aload_3
+     196: aload_0
+     197: aload_3
+     198: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     201: invokevirtual #425                // Method getView:(I)Ledu/bu/pas/uno/Game$GameView;
+     204: iload         5
+     206: invokevirtual #464                // Method edu/bu/pas/uno/agents/Agent.maybePlayDrawnCard:(Ledu/bu/pas/uno/Game$GameView;I)Ledu/bu/pas/uno/moves/Move;
+     209: astore_1
+     210: aload_1
+     211: ifnull        286
+     214: aload_0
+     215: aload_3
+     216: aload_2
+     217: aload_1
+     218: invokevirtual #437                // Method checkMove:(Ledu/bu/pas/uno/agents/Agent;Ledu/bu/pas/uno/Hand;Ledu/bu/pas/uno/moves/Move;)Ledu/bu/pas/uno/moves/Move;
+     221: astore_1
+     222: aload_1
+     223: ifnonnull     244
+     226: aload_0
+     227: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     230: aload_0
+     231: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     234: aload_3
+     235: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     238: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+     241: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+     244: aload_1
+     245: ifnonnull     262
+     248: new           #433                // class edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem
+     251: dup
+     252: aload_3
+     253: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     256: invokespecial #435                // Method edu/bu/pas/uno/history/TimeoutTurnSkippedHistoryItem."<init>":(I)V
+     259: goto          281
+     262: new           #468                // class edu/bu/pas/uno/history/DrewSingleCardAndPlayedHistoryItem
+     265: dup
+     266: aload_3
+     267: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     270: aload_2
+     271: aload_1
+     272: invokevirtual #389                // Method edu/bu/pas/uno/moves/Move.getCardToPlayIdx:()I
+     275: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     278: invokespecial #470                // Method edu/bu/pas/uno/history/DrewSingleCardAndPlayedHistoryItem."<init>":(ILedu/bu/pas/uno/Card;)V
+     281: astore        4
+     283: goto          315
+     286: new           #471                // class edu/bu/pas/uno/history/DrewSingleCardHistoryItem
+     289: dup
+     290: aload_3
+     291: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     294: invokespecial #473                // Method edu/bu/pas/uno/history/DrewSingleCardHistoryItem."<init>":(I)V
+     297: astore        4
+     299: goto          315
+     302: new           #471                // class edu/bu/pas/uno/history/DrewSingleCardHistoryItem
+     305: dup
+     306: aload_3
+     307: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     310: invokespecial #473                // Method edu/bu/pas/uno/history/DrewSingleCardHistoryItem."<init>":(I)V
+     313: astore        4
+     315: goto          424
+     318: aload_2
+     319: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+     322: istore        5
+     324: aload_0
+     325: invokevirtual #375                // Method getUnresolvedCards:()Ledu/bu/pas/uno/Game$UnresolvedCardBuffer;
+     328: invokevirtual #474                // Method edu/bu/pas/uno/Game$UnresolvedCardBuffer.total:()I
+     331: istore        6
+     333: aload_0
+     334: aload_2
+     335: iload         6
+     337: invokevirtual #477                // Method drawTotal:(Ledu/bu/pas/uno/Hand;I)V
+     340: aload_0
+     341: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     344: ifnull        406
+     347: aload_2
+     348: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+     351: iload         5
+     353: isub
+     354: anewarray     #177                // class edu/bu/pas/uno/Card
+     357: astore        7
+     359: iconst_0
+     360: istore        8
+     362: iload         8
+     364: aload         7
+     366: arraylength
+     367: if_icmpge     390
+     370: aload         7
+     372: iload         8
+     374: aload_2
+     375: iload         5
+     377: iload         8
+     379: iadd
+     380: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+     383: aastore
+     384: iinc          8, 1
+     387: goto          362
+     390: aload_0
+     391: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     394: aload_0
+     395: aload_3
+     396: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     399: aload         7
+     401: invokeinterface #455,  4          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onCardsDrawn:(Ledu/bu/pas/uno/Game;I[Ledu/bu/pas/uno/Card;)V
+     406: aconst_null
+     407: astore_1
+     408: new           #481                // class edu/bu/pas/uno/history/DrewManyCardsHistoryItem
+     411: dup
+     412: aload_3
+     413: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     416: iload         6
+     418: i2l
+     419: invokespecial #483                // Method edu/bu/pas/uno/history/DrewManyCardsHistoryItem."<init>":(IJ)V
+     422: astore        4
+     424: aload_0
+     425: aload         4
+     427: invokevirtual #486                // Method addToHistory:(Ledu/bu/pas/uno/history/HistoryItem;)V
+     430: aload_1
+     431: areturn
+
+  public final void resolveMove(edu.bu.pas.uno.moves.Move);
+    Code:
+       0: aload_1
+       1: ifnull        274
+       4: aload_1
+       5: invokevirtual #377                // Method edu/bu/pas/uno/moves/Move.getPlayerIdx:()I
+       8: istore_2
+       9: aload_1
+      10: invokevirtual #389                // Method edu/bu/pas/uno/moves/Move.getCardToPlayIdx:()I
+      13: istore_3
+      14: aload_0
+      15: invokevirtual #417                // Method getCurrentAgent:()Ledu/bu/pas/uno/agents/Agent;
+      18: astore        4
+      20: aload_0
+      21: aload_0
+      22: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+      25: invokevirtual #290                // Method edu/bu/pas/uno/Game$PlayerOrder.getCurrentLogicalPlayerIdx:()I
+      28: invokevirtual #297                // Method getHand:(I)Ledu/bu/pas/uno/Hand;
+      31: astore        5
+      33: aload         5
+      35: iload_3
+      36: invokevirtual #279                // Method edu/bu/pas/uno/Hand.getCard:(I)Ledu/bu/pas/uno/Card;
+      39: astore        6
+      41: aload_0
+      42: aload         4
+      44: aload         5
+      46: aload_1
+      47: invokevirtual #437                // Method checkMove:(Ledu/bu/pas/uno/agents/Agent;Ledu/bu/pas/uno/Hand;Ledu/bu/pas/uno/moves/Move;)Ledu/bu/pas/uno/moves/Move;
+      50: ifnull        274
+      53: aload         5
+      55: aload_0
+      56: invokevirtual #490                // Method edu/bu/pas/uno/Hand.getLegalMoves:(Ledu/bu/pas/uno/Game;)Ljava/util/Set;
+      59: aload_1
+      60: invokevirtual #389                // Method edu/bu/pas/uno/moves/Move.getCardToPlayIdx:()I
+      63: invokestatic  #494                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      66: invokeinterface #500,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      71: ifne          123
+      74: getstatic     #7                  // Field java/lang/System.err:Ljava/io/PrintStream;
+      77: aload         4
+      79: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+      82: aload         4
+      84: invokevirtual #505                // Method edu/bu/pas/uno/agents/Agent.getLogicalPlayerIdx:()I
+      87: iload_3
+      88: aload         6
+      90: invokestatic  #508                // Method java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+      93: invokedynamic #513,  0            // InvokeDynamic #3:makeConcatWithConstants:(IIILjava/lang/String;)Ljava/lang/String;
+      98: invokevirtual #15                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     101: aload_0
+     102: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+     105: aload_0
+     106: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     109: aload         4
+     111: invokevirtual #218                // Method edu/bu/pas/uno/agents/Agent.getPlayerIdx:()I
+     114: invokevirtual #383                // Method edu/bu/pas/uno/Game$PlayerOrder.getLogicalIdx:(I)I
+     117: invokevirtual #386                // Method edu/bu/pas/uno/Game$TimeoutTracker.markTimeout:(I)V
+     120: goto          274
+     123: aload_1
+     124: aload_0
+     125: invokevirtual #516                // Method edu/bu/pas/uno/moves/Move.applyEffects:(Ledu/bu/pas/uno/Game;)V
+     128: aload         5
+     130: iload_3
+     131: invokevirtual #520                // Method edu/bu/pas/uno/Hand.remove:(I)V
+     134: aload_0
+     135: invokevirtual #334                // Method getDiscardPile:()Ledu/bu/pas/uno/DiscardPile;
+     138: aload         6
+     140: invokevirtual #338                // Method edu/bu/pas/uno/DiscardPile.push:(Ledu/bu/pas/uno/Card;)V
+     143: aload_0
+     144: aload         6
+     146: invokevirtual #353                // Method setLastPlayedCard:(Ledu/bu/pas/uno/Card;)V
+     149: aload_0
+     150: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     153: ifnull        274
+     156: aload_0
+     157: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     160: aload_0
+     161: iload_2
+     162: aload         6
+     164: iload_3
+     165: invokeinterface #523,  5          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onCardPlayed:(Ledu/bu/pas/uno/Game;ILedu/bu/pas/uno/Card;I)V
+     170: aload         6
+     172: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     175: getstatic     #527                // Field edu/bu/pas/uno/enums/Value.REVERSE:Ledu/bu/pas/uno/enums/Value;
+     178: if_acmpne     191
+     181: aload_0
+     182: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     185: aload_0
+     186: invokeinterface #530,  2          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onDirectionReversed:(Ledu/bu/pas/uno/Game;)V
+     191: aload         6
+     193: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     196: getstatic     #533                // Field edu/bu/pas/uno/enums/Value.SKIP:Ledu/bu/pas/uno/enums/Value;
+     199: if_acmpeq     221
+     202: aload         6
+     204: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     207: getstatic     #527                // Field edu/bu/pas/uno/enums/Value.REVERSE:Ledu/bu/pas/uno/enums/Value;
+     210: if_acmpne     238
+     213: aload_0
+     214: invokevirtual #307                // Method getNumPlayers:()I
+     217: iconst_2
+     218: if_icmpne     238
+     221: aload_0
+     222: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     225: aload_0
+     226: aload_0
+     227: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     230: invokevirtual #536                // Method edu/bu/pas/uno/Game$PlayerOrder.getCurrentAgentIdx:()I
+     233: invokeinterface #539,  3          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onPlayerSkipped:(Ledu/bu/pas/uno/Game;I)V
+     238: aload         6
+     240: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     243: getstatic     #396                // Field edu/bu/pas/uno/enums/Value.WILD:Ledu/bu/pas/uno/enums/Value;
+     246: if_acmpeq     260
+     249: aload         6
+     251: invokevirtual #188                // Method edu/bu/pas/uno/Card.value:()Ledu/bu/pas/uno/enums/Value;
+     254: getstatic     #399                // Field edu/bu/pas/uno/enums/Value.WILD_DRAW_FOUR:Ledu/bu/pas/uno/enums/Value;
+     257: if_acmpne     274
+     260: aload_0
+     261: invokevirtual #451                // Method getListener:()Ledu/bu/pas/uno/ui/UnoListener;
+     264: aload_0
+     265: aload_1
+     266: invokevirtual #402                // Method edu/bu/pas/uno/moves/Move.getNewColorIfWild:()Ledu/bu/pas/uno/enums/Color;
+     269: invokeinterface #542,  3          // InterfaceMethod edu/bu/pas/uno/ui/UnoListener.onColorChosen:(Ledu/bu/pas/uno/Game;Ledu/bu/pas/uno/enums/Color;)V
+     274: aload_0
+     275: aload_0
+     276: invokevirtual #546                // Method getCurrentMoveIdx:()I
+     279: iconst_1
+     280: iadd
+     281: invokevirtual #547                // Method setCurrentMoveIdx:(I)V
+     284: aload_0
+     285: invokevirtual #289                // Method getPlayerOrder:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     288: invokevirtual #550                // Method edu/bu/pas/uno/Game$PlayerOrder.advance:()Ledu/bu/pas/uno/Game$PlayerOrder;
+     291: pop
+     292: return
+
+  public final boolean isOver();
+    Code:
+       0: aload_0
+       1: invokevirtual #546                // Method getCurrentMoveIdx:()I
+       4: aload_0
+       5: invokevirtual #553                // Method getMaxNumMoves:()I
+       8: if_icmplt     15
+      11: iconst_1
+      12: goto          16
+      15: iconst_0
+      16: istore_1
+      17: iconst_0
+      18: istore_2
+      19: aload_0
+      20: invokevirtual #293                // Method getHands:()[Ledu/bu/pas/uno/Hand;
+      23: astore_3
+      24: aload_3
+      25: arraylength
+      26: istore        4
+      28: iconst_0
+      29: istore        5
+      31: iload         5
+      33: iload         4
+      35: if_icmpge     60
+      38: aload_3
+      39: iload         5
+      41: aaload
+      42: astore        6
+      44: aload         6
+      46: invokevirtual #276                // Method edu/bu/pas/uno/Hand.size:()I
+      49: ifne          54
+      52: iconst_1
+      53: istore_2
+      54: iinc          5, 1
+      57: goto          31
+      60: aload_0
+      61: invokevirtual #382                // Method getTimeoutTracker:()Ledu/bu/pas/uno/Game$TimeoutTracker;
+      64: invokevirtual #554                // Method edu/bu/pas/uno/Game$TimeoutTracker.isAnyOutOfTimeoutsLeft:()Z
+      67: istore_3
+      68: iload_1
+      69: ifne          80
+      72: iload_2
+      73: ifne          80
+      76: iload_3
+      77: ifeq          84
+      80: iconst_1
+      81: goto          85
+      84: iconst_0
+      85: ireturn
+}
