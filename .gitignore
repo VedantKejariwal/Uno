@@ -17,3 +17,6 @@ doc/
 # Logs / temp
 *.log
 hs_err_pid*.log
+
+# Markdown (keep locally; not versioned)
+*.md
