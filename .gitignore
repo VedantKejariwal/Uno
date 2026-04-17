@@ -11,12 +11,9 @@ target/
 .vscode/
 .DS_Store
 
-# Generated Javadoc (regenerate with javadoc if needed)
-doc/
-
 # Logs / temp
 *.log
 hs_err_pid*.log
 
-# Markdown (keep locally; not versioned)
-*.md
+# Markdown at repo root only (notes/PRDs); doc/** may include .md (Javadoc legal/)
+/*.md
