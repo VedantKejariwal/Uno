@@ -108,7 +108,7 @@ The loop does not update the leaf node itself because no action was taken from i
 
 Identical to `ExpectedOutcomeAgent`. Same three NodeState cases, same Q-value argmax loop, same move construction logic including the wild card check and the `myHand.size() - 1` index for drawn cards. The named constants `DrawSingleCardIdxs.PLAY_CARD_MOVE_IDX` and `DrawSingleCardIdxs.KEEP_CARD_MOVE_IDX` are used for the play/keep comparison to be explicit about which index means what.
 
-## For details check out:
+## For more details check out:
 `doc/pas/uno/index.html`
 
 ## How to run
