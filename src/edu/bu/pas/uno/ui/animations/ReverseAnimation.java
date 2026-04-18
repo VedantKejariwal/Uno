@@ -27,7 +27,7 @@ public class ReverseAnimation extends UnoAnimation {
             return;
         }
         int cx = ThemeConfig.BOARD_W / 2;
-        int cy = ThemeConfig.BOARD_H / 2;
+        int cy = ThemeConfig.PLAY_AREA_H / 2;
         java.awt.Color yellow = new java.awt.Color(255, 230, 60, alpha);
         g.setColor(yellow);
         g.setStroke(new BasicStroke(5.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));

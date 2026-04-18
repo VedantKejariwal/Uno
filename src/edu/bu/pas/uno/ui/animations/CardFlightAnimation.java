@@ -3,6 +3,7 @@ package edu.bu.pas.uno.ui.animations;
 import edu.bu.pas.uno.Card;
 import edu.bu.pas.uno.ui.UnoAnimation;
 import edu.bu.pas.uno.ui.UnoPanel;
+import edu.bu.pas.uno.ui.frontend.ImageCardLoader;
 import edu.bu.pas.uno.ui.frontend.ThemeConfig;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -33,7 +34,7 @@ public class CardFlightAnimation extends UnoAnimation {
         double eased = 1.0 - (1.0 - t) * (1.0 - t);
         int x = (int) (srcX + (dstX - srcX) * eased);
         int y = (int) (srcY + (dstY - srcY) * eased);
-        BufferedImage img = panel.getCardRenderer().getCardImage(card);
+        BufferedImage img = ImageCardLoader.getCard(panel.getCardSpriteKey(card));
         g.drawImage(img, x, y, ThemeConfig.CARD_W, ThemeConfig.CARD_H, null);
     }
 }

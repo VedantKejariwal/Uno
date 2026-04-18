@@ -31,7 +31,7 @@ public class DrawPenaltyAnimation extends UnoAnimation {
         }
         int rise = AnimationUtils.bounceUpPixels(p, 42);
         int cx = ThemeConfig.BOARD_W / 2;
-        int cy = ThemeConfig.BOARD_H / 2 - rise;
+        int cy = ThemeConfig.PLAY_AREA_H / 2 - rise;
         g.setFont(panel.getGameFont().deriveFont(Font.BOLD, 48.0f));
         FontMetrics fm = g.getFontMetrics();
         int tx = cx - fm.stringWidth(label) / 2;

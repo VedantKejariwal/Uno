@@ -17,8 +17,15 @@ import java.awt.Point;
 
 /**
  * Bridges engine callbacks into short UI animations (sounds, motion, highlights).
+ * Durations are kept short so {@link UnoPanel#join()} does not stall the game loop behind long queues.
  */
 public class UnoAnimationListener implements UnoListener {
+
+    private static final int CARD_FLIGHT_MS = 280;
+    private static final int HIGHLIGHT_MS = 160;
+    private static final int TURN_DELAY_MS = 50;
+    private static final int SPECIAL_FX_MS = 320;
+    private static final int COLOR_FX_MS = 180;
 
     private final UnoPanel panel;
 
@@ -40,8 +47,8 @@ public class UnoAnimationListener implements UnoListener {
     public void onTurnStarted(Game game, int playerIdx) {
         this.panel.queueAnimation(new UpdateGameStateAnimation(game));
         int seat = game.getPlayerOrder().getLogicalIdx(playerIdx);
-        this.panel.queueAnimation(new HighlightAnimation(seat, 400));
-        this.panel.queueAnimation(new DelayAnimation(200));
+        this.panel.queueAnimation(new HighlightAnimation(seat, HIGHLIGHT_MS));
+        this.panel.queueAnimation(new DelayAnimation(TURN_DELAY_MS));
     }
 
     @Override
@@ -55,34 +62,36 @@ public class UnoAnimationListener implements UnoListener {
         int seat = game.getPlayerOrder().getLogicalIdx(playerIdx);
         Point src = this.panel.getSeatNewCardPosition(seat, cardIndex, handSize);
         Point dst = this.panel.getDiscardPosition();
-        this.panel.queueAnimation(new CardFlightAnimation(card, src.x, src.y, dst.x, dst.y, 800));
+        this.panel.queueAnimation(new CardFlightAnimation(card, src.x, src.y, dst.x, dst.y, CARD_FLIGHT_MS));
         this.panel.queueAnimation(new UpdateGameStateAnimation(game));
         Value v = card.value();
         if (v == Value.SKIP) {
-            this.panel.queueAnimation(new SkipAnimation(1000));
+            this.panel.queueAnimation(new SkipAnimation(SPECIAL_FX_MS));
         } else if (v == Value.REVERSE) {
-            this.panel.queueAnimation(new ReverseAnimation(1000));
+            this.panel.queueAnimation(new ReverseAnimation(SPECIAL_FX_MS));
         } else if (v == Value.DRAW_TWO || v == Value.WILD_DRAW_FOUR) {
-            this.panel.queueAnimation(new DrawPenaltyAnimation(v, 1000));
+            this.panel.queueAnimation(new DrawPenaltyAnimation(v, SPECIAL_FX_MS));
         }
     }
 
     @Override
     public void onCardsDrawn(Game game, int playerIdx, Card[] cards) {
-        int logicalIdx = game.getPlayerOrder().getLogicalIdx(playerIdx);
-        for (int i = 0; i < cards.length; ++i) {
-            Card card = cards[i];
-            Sound drawSound = this.panel.getSounds().getByName("draw");
-            if (drawSound != null) {
-                this.panel.queueAnimation(new SoundAnimation(drawSound.getAudioStream(), false));
-            }
-            int seat = game.getPlayerOrder().getLogicalIdx(playerIdx);
-            Point src = this.panel.getDrawPilePosition();
-            int sizeBeforeDraws = game.getHand(logicalIdx).size() - cards.length;
-            int handSizeWhenAdded = sizeBeforeDraws + i + 1;
-            Point dst = this.panel.getSeatNewCardPosition(seat, handSizeWhenAdded - 1, handSizeWhenAdded);
-            this.panel.queueAnimation(new CardFlightAnimation(card, src.x, src.y, dst.x, dst.y, 800));
+        if (cards.length == 0) {
+            this.panel.queueAnimation(new UpdateGameStateAnimation(game));
+            return;
         }
+        Sound drawSound = this.panel.getSounds().getByName("draw");
+        if (drawSound != null) {
+            this.panel.queueAnimation(new SoundAnimation(drawSound.getAudioStream(), false));
+        }
+        int logicalIdx = game.getPlayerOrder().getLogicalIdx(playerIdx);
+        int seat = game.getPlayerOrder().getLogicalIdx(playerIdx);
+        Point src = this.panel.getDrawPilePosition();
+        int sizeBeforeDraws = game.getHand(logicalIdx).size() - cards.length;
+        int last = cards.length - 1;
+        int handSizeWhenAdded = sizeBeforeDraws + last + 1;
+        Point dst = this.panel.getSeatNewCardPosition(seat, handSizeWhenAdded - 1, handSizeWhenAdded);
+        this.panel.queueAnimation(new CardFlightAnimation(cards[last], src.x, src.y, dst.x, dst.y, CARD_FLIGHT_MS));
         this.panel.queueAnimation(new UpdateGameStateAnimation(game));
     }
 
@@ -92,7 +101,7 @@ public class UnoAnimationListener implements UnoListener {
         if (chooseSound != null) {
             this.panel.queueAnimation(new SoundAnimation(chooseSound.getAudioStream(), false));
         }
-        this.panel.queueAnimation(new ColorChangeAnimation(chosenColor, 500));
+        this.panel.queueAnimation(new ColorChangeAnimation(chosenColor, COLOR_FX_MS));
     }
 
     @Override

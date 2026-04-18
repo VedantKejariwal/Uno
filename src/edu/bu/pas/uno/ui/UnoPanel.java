@@ -7,9 +7,11 @@ import edu.bu.pas.uno.enums.Color;
 import edu.bu.pas.uno.enums.Value;
 import edu.bu.pas.uno.ui.animations.UpdateGameStateAnimation;
 import edu.bu.pas.uno.ui.frontend.AnimationUtils;
-import edu.bu.pas.uno.ui.frontend.CardRenderer;
+import edu.bu.pas.uno.ui.frontend.ImageCardLoader;
 import edu.bu.pas.uno.ui.frontend.MetricsOverlay;
 import edu.bu.pas.uno.ui.frontend.ThemeConfig;
+import edu.bu.pas.uno.ui.frontend.UiLabeling;
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -19,14 +21,12 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
-import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,14 +38,20 @@ import javax.swing.JPanel;
  */
 public class UnoPanel extends JPanel implements Runnable {
 
-    private static final long FRAME_MILLIS = 16L;
+    /**
+     * Target ~50fps so the sim thread is not contending with a 60Hz repaint budget on every move.
+     */
+    private static final long FRAME_MILLIS = 20L;
 
     private final Registry<Sound> sounds;
     private final Font font;
     private final SoundManager soundManager;
-    private final BufferedImage boardBuffer;
+    private final BufferedImage[] boardBuffers;
+    /** Swapped when a full off-screen render is complete: {@code 1 -} always writes a non-visible buffer. */
+    private volatile int displayBufferIndex;
+    /** Ensures EDT reads the buffer index only after the write buffer is fully painted (avoids rare torn frames). */
+    private final Object frameSwapLock = new Object();
     private final boolean isColorblind;
-    private final CardRenderer cardRenderer;
     private final MetricsOverlay metricsOverlay = new MetricsOverlay();
     private final String[] agentDisplayNames = new String[]{"P0", "P1", "P2", "P3"};
 
@@ -54,20 +60,24 @@ public class UnoPanel extends JPanel implements Runnable {
     private volatile boolean isRunning;
     private long lastUpdateMillis;
     private final Queue<UnoAnimation> animationQueue;
+    /** Serializes {@link #queueAnimation} with {@link #update} polls (iterator.remove was racing polls). */
+    private final Object animationQueueLock = new Object();
     private volatile UnoAnimation currentAnimation;
     private CountDownLatch latch;
     private final Object latchLock = new Object();
     private final Point[] playerOffsets = new Point[4];
     private volatile int highlightedSeat = -1;
-    private volatile Color activeColorDisplay;
-    private volatile double colorIndicatorScale = 1.0;
 
     public UnoPanel(SoundManager soundManager, boolean colorblind) {
         this.soundManager = soundManager;
         this.animationQueue = new ConcurrentLinkedDeque<>();
         this.currentAnimation = null;
         this.latch = null;
-        this.boardBuffer = new BufferedImage(ThemeConfig.BOARD_W, ThemeConfig.BOARD_H, BufferedImage.TYPE_INT_ARGB);
+        this.boardBuffers = new BufferedImage[2];
+        for (int b = 0; b < 2; b++) {
+            this.boardBuffers[b] = new BufferedImage(ThemeConfig.BOARD_W, ThemeConfig.BOARD_H, BufferedImage.TYPE_INT_ARGB);
+        }
+        this.displayBufferIndex = 0;
         this.isColorblind = colorblind;
         for (int i = 0; i < 4; ++i) {
             this.playerOffsets[i] = new Point(0, 0);
@@ -84,9 +94,10 @@ public class UnoPanel extends JPanel implements Runnable {
         } catch (FontFormatException | IOException | URISyntaxException e) {
             throw new RuntimeException("Failed to load UI assets", e);
         }
-        this.cardRenderer = new CardRenderer(this.font, colorblind);
+        ImageCardLoader.loadAll();
         this.setPreferredSize(new Dimension(ThemeConfig.PANEL_PREF_W, ThemeConfig.PANEL_PREF_H));
         this.setBackground(java.awt.Color.BLACK);
+        this.setOpaque(true);
         this.setDoubleBuffered(true);
     }
 
@@ -99,10 +110,6 @@ public class UnoPanel extends JPanel implements Runnable {
         for (int logical = 0; logical < game.getNumPlayers(); logical++) {
             agentDisplayNames[logical] = game.getAgent(logical).getClass().getSimpleName();
         }
-    }
-
-    public CardRenderer getCardRenderer() {
-        return cardRenderer;
     }
 
     public SoundManager getSoundManager() {
@@ -123,9 +130,6 @@ public class UnoPanel extends JPanel implements Runnable {
 
     public void setGameView(Game.GameView view) {
         this.gameView = view;
-        if (view != null) {
-            this.activeColorDisplay = view.getCurrentColor();
-        }
     }
 
     public Point getPlayerOffset(int seatIdx) {
@@ -140,35 +144,32 @@ public class UnoPanel extends JPanel implements Runnable {
         this.highlightedSeat = seat;
     }
 
-    public Color getActiveColorDisplay() {
-        return this.activeColorDisplay;
-    }
-
-    public void setActiveColorDisplay(Color c) {
-        this.activeColorDisplay = c;
-    }
-
-    public double getColorIndicatorScale() {
-        return this.colorIndicatorScale;
-    }
-
-    public void setColorIndicatorScale(double s) {
-        this.colorIndicatorScale = s;
-    }
-
+    /**
+     * Enqueues an animation. Pending {@link UpdateGameStateAnimation}s are dropped when a new one is
+     * queued so the engine thread is not held behind redundant state snaps (major latency win).
+     */
     public void queueAnimation(UnoAnimation animation) {
-        this.animationQueue.offer(animation);
+        synchronized (this.animationQueueLock) {
+            if (animation instanceof UpdateGameStateAnimation) {
+                this.animationQueue.removeIf(e -> e instanceof UpdateGameStateAnimation);
+            }
+            this.animationQueue.offer(animation);
+        }
     }
 
     public void join() {
-        synchronized (this.latchLock) {
-            if (this.animationQueue.isEmpty() && this.currentAnimation == null) {
-                return;
+        CountDownLatch waitOn;
+        synchronized (this.animationQueueLock) {
+            synchronized (this.latchLock) {
+                if (this.animationQueue.isEmpty() && this.currentAnimation == null) {
+                    return;
+                }
+                waitOn = new CountDownLatch(1);
+                this.latch = waitOn;
             }
-            this.latch = new CountDownLatch(1);
         }
         try {
-            this.latch.await();
+            waitOn.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -188,14 +189,28 @@ public class UnoPanel extends JPanel implements Runnable {
     public void run() {
         while (this.isRunning) {
             long now = System.currentTimeMillis();
-            int deltaMillis = (int) (now - this.lastUpdateMillis);
+            int rawDelta = (int) (now - this.lastUpdateMillis);
             this.lastUpdateMillis = now;
+            // Avoid one giant timestep after a stall (debugger, GC pause) skipping animation frames.
+            int deltaMillis = Math.min(Math.max(rawDelta, 0), 48);
             this.update(deltaMillis);
+            int write = 1 - this.displayBufferIndex;
+            Graphics2D rg = this.boardBuffers[write].createGraphics();
+            try {
+                this.renderBoard(rg);
+            } finally {
+                rg.dispose();
+            }
+            synchronized (this.frameSwapLock) {
+                this.displayBufferIndex = write;
+            }
+            // repaint() is thread-safe and coalesces internally; invokeLater every frame flooded the EDT queue.
             this.repaint();
             long elapsed = System.currentTimeMillis() - now;
             long sleepTime = FRAME_MILLIS - elapsed - 1L;
-            if (sleepTime <= 0L) {
-                continue;
+            // Always sleep at least 1ms so a slow frame does not busy-spin the CPU.
+            if (sleepTime < 1L) {
+                sleepTime = 1L;
             }
             try {
                 TimeUnit.MILLISECONDS.sleep(sleepTime);
@@ -213,15 +228,29 @@ public class UnoPanel extends JPanel implements Runnable {
                 this.currentAnimation = null;
             }
         }
-        while (this.currentAnimation == null && !this.animationQueue.isEmpty()) {
-            this.currentAnimation = this.animationQueue.poll();
-            if (!(this.currentAnimation instanceof UpdateGameStateAnimation)) {
+        while (this.currentAnimation == null) {
+            UnoAnimation next;
+            synchronized (this.animationQueueLock) {
+                if (this.animationQueue.isEmpty()) {
+                    break;
+                }
+                next = this.animationQueue.poll();
+            }
+            if (next == null) {
+                break;
+            }
+            if (next instanceof UpdateGameStateAnimation) {
+                next.onFinished(this);
                 continue;
             }
-            this.currentAnimation.onFinished(this);
-            this.currentAnimation = null;
+            this.currentAnimation = next;
+            break;
         }
-        if (this.currentAnimation == null && this.animationQueue.isEmpty()) {
+        boolean queueEmpty;
+        synchronized (this.animationQueueLock) {
+            queueEmpty = this.animationQueue.isEmpty();
+        }
+        if (this.currentAnimation == null && queueEmpty) {
             synchronized (this.latchLock) {
                 if (this.latch != null) {
                     this.latch.countDown();
@@ -234,9 +263,10 @@ public class UnoPanel extends JPanel implements Runnable {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        this.renderBoard();
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         int panelW = this.getWidth();
         int panelH = this.getHeight();
         double scaleX = (double) panelW / (double) ThemeConfig.BOARD_W;
@@ -248,24 +278,31 @@ public class UnoPanel extends JPanel implements Runnable {
         int drawY = (panelH - drawH) / 2;
         g2d.setColor(java.awt.Color.BLACK);
         g2d.fillRect(0, 0, panelW, panelH);
-        g2d.drawImage(this.boardBuffer, drawX, drawY, drawW, drawH, null);
+        BufferedImage frame;
+        synchronized (this.frameSwapLock) {
+            frame = this.boardBuffers[this.displayBufferIndex];
+        }
+        g2d.drawImage(frame, drawX, drawY, drawW, drawH, null);
     }
 
     // ── RENDER PASS ──
 
-    private void renderBoard() {
-        Graphics2D g = this.boardBuffer.createGraphics();
+    private void renderBoard(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // LCD subpixel AA flickers when UI moves; grayscale AA is steadier for HUD / ticker text.
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
         this.drawBackground(g);
         Game.GameView view = this.gameView;
         if (view == null) {
             String msg = "Waiting for game...";
-            this.drawText(g, msg, ThemeConfig.FONT_MEDIUM, java.awt.Color.WHITE, 0, ThemeConfig.BOARD_H / 2, ThemeConfig.BOARD_W, false);
-            g.dispose();
+            this.drawUiCenteredLine(g, msg, ThemeConfig.UI_FONT.deriveFont(ThemeConfig.FONT_MEDIUM), java.awt.Color.WHITE);
             return;
         }
-        metricsOverlay.update(view, view.getCurrentMoveIdx(), null);
+        metricsOverlay.update(view, view.getCurrentMoveIdx(), null, agentDisplayNames);
         int numPlayers = view.getNumPlayers();
         this.drawCenterArea(g, view);
         for (int logicalIdx = 0; logicalIdx < numPlayers; ++logicalIdx) {
@@ -277,84 +314,59 @@ public class UnoPanel extends JPanel implements Runnable {
         if (this.currentAnimation != null) {
             this.currentAnimation.render(g, this);
         }
-        if (view.isOver()) {
-            drawWinOverlay(g, view);
-        }
-        g.dispose();
     }
 
     private void drawBackground(Graphics2D g) {
-        g.setColor(ThemeConfig.FELT_BASE);
-        g.fillRect(0, 0, ThemeConfig.BOARD_W, ThemeConfig.BOARD_H);
-        g.setColor(ThemeConfig.FELT_SPOTLIGHT);
-        g.fill(new Ellipse2D.Double(ThemeConfig.BOARD_W * 0.15, ThemeConfig.BOARD_H * 0.12, ThemeConfig.BOARD_W * 0.7, ThemeConfig.BOARD_H * 0.76));
-        g.setColor(ThemeConfig.TABLE_BORDER_GOLD);
-        g.setStroke(new BasicStroke(ThemeConfig.TABLE_BORDER_STROKE));
-        g.drawRect(2, 2, ThemeConfig.BOARD_W - 4, ThemeConfig.BOARD_H - 4);
+        int ph = ThemeConfig.PLAY_AREA_H;
+        g.setColor(ThemeConfig.FELT_PLAIN);
+        g.fillRect(0, 0, ThemeConfig.BOARD_W, ph);
+        g.setColor(ThemeConfig.FELT_BORDER);
+        g.setStroke(new BasicStroke(2.0f));
+        g.drawRect(8, 8, ThemeConfig.BOARD_W - 16, ph - 16);
         g.setStroke(new BasicStroke(1.0f));
+    }
+
+    private void drawUiCenteredLine(Graphics2D g, String text, java.awt.Font font, java.awt.Color color) {
+        g.setFont(font);
+        FontMetrics fm = g.getFontMetrics();
+        int tx = (ThemeConfig.BOARD_W - fm.stringWidth(text)) / 2;
+        int ty = ThemeConfig.BOARD_H / 2;
+        g.setColor(color);
+        g.drawString(text, tx, ty);
     }
 
     private void drawCenterArea(Graphics2D g, Game.GameView view) {
         Card topCard = view.getDiscardPile().peek();
         int discardX = ThemeConfig.DISCARD_X;
         int discardY = ThemeConfig.DISCARD_Y;
+        int drawPileX = ThemeConfig.DRAW_X;
+        int drawPileY = ThemeConfig.DRAW_Y;
         if (topCard != null) {
+            g.setColor(new java.awt.Color(0, 0, 0, 80));
+            g.fillRoundRect(discardX + 3, discardY + 3, ThemeConfig.CARD_W, ThemeConfig.CARD_H, 8, 8);
             this.drawCard(g, topCard, discardX, discardY);
         }
         if (!view.getUnresolvedCards().isEmpty()) {
             int total = view.getUnresolvedCards().total();
-            String penaltyText = "DRAW " + total;
-            this.drawText(g, penaltyText, ThemeConfig.FONT_SMALL, toAwtColor(Color.RED), discardX, discardY + 90, ThemeConfig.CARD_W, true);
+            String penaltyText = "+" + total;
+            g.setFont(ThemeConfig.UI_FONT_LARGE);
+            FontMetrics pfm = g.getFontMetrics();
+            g.setColor(ThemeConfig.UNO_TEXT);
+            int px = discardX + ThemeConfig.CARD_W / 2 - pfm.stringWidth(penaltyText) / 2;
+            g.drawString(penaltyText, px, ThemeConfig.PENALTY_Y + pfm.getAscent());
         }
-        int drawPileX = ThemeConfig.DRAW_PILE_X;
-        int drawPileY = ThemeConfig.DRAW_PILE_Y;
         Card back = new Card(Color.UNKNOWN, Value.UNKNOWN);
-        g.drawImage(cardRenderer.getCardImage(back), drawPileX, drawPileY, ThemeConfig.CARD_W, ThemeConfig.CARD_H, null);
-        String countText = String.valueOf(view.getDrawPileSize());
-        this.drawText(g, countText, ThemeConfig.FONT_SMALL, java.awt.Color.WHITE, drawPileX, drawPileY, ThemeConfig.CARD_W, false);
-        this.drawColorIndicator(g, ThemeConfig.COLOR_INDICATOR_CX, ThemeConfig.COLOR_INDICATOR_CY);
-    }
-
-    private void drawText(Graphics2D g, String text, float fontSize, java.awt.Color color, int anchorX, int anchorY, int width, boolean bottomAlign) {
-        g.setFont(this.font.deriveFont(fontSize));
-        FontMetrics fm = g.getFontMetrics();
-        int tx = anchorX + (width - fm.stringWidth(text)) / 2;
-        int ty = bottomAlign ? anchorY + fm.getAscent() + 4 : anchorY - 4;
-        g.setColor(java.awt.Color.BLACK);
-        g.drawString(text, tx + 1, ty + 1);
-        g.setColor(color);
-        g.drawString(text, tx, ty);
-    }
-
-    /**
-     * Table-center color token: large circle, readable label, animated dashed ring.
-     */
-    private void drawColorIndicator(Graphics2D g, int cx, int cy) {
-        Color activeColor = this.activeColorDisplay;
-        if (activeColor == null) {
-            return;
+        BufferedImage backImg = ImageCardLoader.getCard(getCardSpriteKey(back));
+        for (int stack = 3; stack >= 0; stack--) {
+            g.drawImage(backImg, drawPileX - stack, drawPileY - stack, ThemeConfig.CARD_W, ThemeConfig.CARD_H, null);
         }
-        java.awt.Color awtColor = this.toAwtColor(activeColor);
-        int base = ThemeConfig.ACTIVE_COLOR_DIAMETER;
-        int size = (int) (base * this.colorIndicatorScale);
-        int ix = cx - size / 2;
-        int iy = cy - size / 2;
-        float phase = (System.currentTimeMillis() % 4000L) / 25.0f;
-        g.setStroke(ThemeConfig.dashedRingStroke(phase));
-        g.setColor(new java.awt.Color(255, 255, 255, 160));
-        g.drawOval(ix - 4, iy - 4, size + 8, size + 8);
-        g.setColor(awtColor);
-        g.fillOval(ix, iy, size, size);
-        g.setColor(java.awt.Color.BLACK);
-        g.setFont(this.font.deriveFont(Font.BOLD, 10.0f));
-        String name = activeColor.name();
-        FontMetrics fm = g.getFontMetrics();
-        int tx = ix + (size - fm.stringWidth(name)) / 2;
-        int ty = iy + (size + fm.getAscent() - fm.getDescent()) / 2;
-        g.drawString(name, tx, ty);
-        g.setStroke(new BasicStroke(1.0f));
+        String countText = "Deck: " + view.getDrawPileSize();
+        g.setFont(ThemeConfig.UI_FONT);
+        FontMetrics cfm = g.getFontMetrics();
+        int cx = drawPileX + ThemeConfig.CARD_W / 2 - cfm.stringWidth(countText) / 2;
+        int countY = drawPileY + ThemeConfig.CARD_H + 18;
         g.setColor(java.awt.Color.WHITE);
-        g.drawOval(ix, iy, size, size);
+        g.drawString(countText, cx, countY);
     }
 
     private void drawPlayerHand(Graphics2D g, Game.GameView view, Hand.HandView hand, int seatIdx, boolean isActiveTurn) {
@@ -363,7 +375,7 @@ public class UnoPanel extends JPanel implements Runnable {
         boolean isHorizontal = seatIdx == 0 || seatIdx == 2;
         if (isHorizontal) {
             int availableWidth = ThemeConfig.HORIZONTAL_HAND_AVAILABLE_WIDTH;
-            int overlap = numCards <= 1 ? 0 : Math.min(28, (availableWidth - ThemeConfig.CARD_W) / Math.max(1, numCards - 1));
+            int overlap = numCards <= 1 ? 0 : Math.min(ThemeConfig.HAND_OVERLAP_H_MAX, (availableWidth - ThemeConfig.CARD_W) / Math.max(1, numCards - 1));
             int totalWidth = numCards <= 1 ? ThemeConfig.CARD_W : ThemeConfig.CARD_W + overlap * (numCards - 1);
             int startX = (ThemeConfig.BOARD_W - totalWidth) / 2 + offset.x;
             int y = seatIdx == 0 ? ThemeConfig.BOTTOM_HAND_Y + offset.y : ThemeConfig.TOP_HAND_Y + offset.y;
@@ -377,20 +389,17 @@ public class UnoPanel extends JPanel implements Runnable {
                 int cx = startX + i * overlap;
                 this.drawCard(g, hand.getCard(i), cx, y);
             }
-            String label = agentDisplayNames[seatIdx] + " [" + numCards + "]";
-            if (seatIdx == 0) {
-                drawNameBadge(g, label, offset.x, y + ThemeConfig.CARD_H + 6, ThemeConfig.BOARD_W, true);
-            } else {
-                drawNameBadge(g, label, offset.x, y - 8, ThemeConfig.BOARD_W, false);
-            }
+            String shortNm = UiLabeling.shortAgentName(agentDisplayNames[seatIdx]);
+            String label = UiLabeling.handLabel(shortNm, numCards);
+            drawNameBadge(g, label, offset.x, y - 8, ThemeConfig.BOARD_W);
             if (numCards == 1) {
                 drawUnoCallout(g, startX + totalWidth + 8, y + ThemeConfig.CARD_H / 2);
             }
         } else {
             int availableHeight = ThemeConfig.VERTICAL_HAND_AVAILABLE_HEIGHT;
-            int overlap = numCards <= 1 ? 0 : Math.min(48, (availableHeight - ThemeConfig.CARD_H) / Math.max(1, numCards - 1));
+            int overlap = numCards <= 1 ? 0 : Math.min(ThemeConfig.HAND_OVERLAP_V_MAX, (availableHeight - ThemeConfig.CARD_H) / Math.max(1, numCards - 1));
             int totalHeight = numCards <= 1 ? ThemeConfig.CARD_H : ThemeConfig.CARD_H + overlap * (numCards - 1);
-            int startY = (ThemeConfig.BOARD_H - totalHeight) / 2 + offset.y;
+            int startY = (ThemeConfig.PLAY_AREA_H - totalHeight) / 2 + offset.y;
             int x = seatIdx == 1 ? ThemeConfig.SIDE_HAND_X_LEFT + offset.x : ThemeConfig.SIDE_HAND_X_RIGHT + offset.x;
             if (isActiveTurn) {
                 drawTurnGlow(g, x - 6, startY - 6, ThemeConfig.CARD_W + 12, totalHeight + 12);
@@ -402,9 +411,10 @@ public class UnoPanel extends JPanel implements Runnable {
                 int cy = startY + i * overlap;
                 this.drawCard(g, hand.getCard(i), x, cy);
             }
-            String label = agentDisplayNames[seatIdx] + " [" + numCards + "]";
-            int badgeAnchorX = seatIdx == 1 ? Math.max(4, x - 8) : Math.max(4, x - 172);
-            drawNameBadge(g, label, badgeAnchorX, startY, 180, false);
+            String shortNm = UiLabeling.shortAgentName(agentDisplayNames[seatIdx]);
+            String label = UiLabeling.handLabel(shortNm, numCards);
+            int badgeAnchorX = seatIdx == 1 ? Math.max(4, x - 8) : Math.max(4, x - 200);
+            drawNameBadge(g, label, badgeAnchorX, startY, 200);
             if (numCards == 1) {
                 drawUnoCallout(g, x + ThemeConfig.CARD_W + 6, startY + totalHeight / 2);
             }
@@ -413,48 +423,54 @@ public class UnoPanel extends JPanel implements Runnable {
 
     private void drawTurnGlow(Graphics2D g, int rx, int ry, int rw, int rh) {
         double pulse = AnimationUtils.pulse01(System.currentTimeMillis(), 900.0);
+        float base = (float) (pulse * 0.45 + 0.15);
         for (int layer = ThemeConfig.TURN_GLOW_LAYERS; layer >= 1; layer--) {
             int spread = layer * 4;
-            int alpha = (int) (pulse * (120 - layer * 18));
-            g.setColor(new java.awt.Color(ThemeConfig.TURN_GLOW.getRed(), ThemeConfig.TURN_GLOW.getGreen(), ThemeConfig.TURN_GLOW.getBlue(), Math.max(0, Math.min(255, alpha))));
+            float a = base * (1.0f - layer * 0.12f);
+            a = Math.min(1f, Math.max(0.05f, a));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
+            g.setColor(ThemeConfig.TURN_GLOW);
             g.drawRoundRect(rx - spread, ry - spread, rw + spread * 2, rh + spread * 2, 12, 12);
         }
+        g.setComposite(AlphaComposite.SrcOver);
     }
 
     private void drawDangerGlow(Graphics2D g, int rx, int ry, int rw, int rh) {
         double pulse = AnimationUtils.pulse01(System.currentTimeMillis(), 700.0);
+        float base = (float) (pulse * 0.38 + 0.12);
         for (int layer = ThemeConfig.DANGER_GLOW_LAYERS; layer >= 1; layer--) {
             int spread = layer * 3;
-            int alpha = (int) (pulse * (100 - layer * 16));
-            g.setColor(new java.awt.Color(ThemeConfig.DANGER_GLOW.getRed(), ThemeConfig.DANGER_GLOW.getGreen(), ThemeConfig.DANGER_GLOW.getBlue(), Math.max(0, Math.min(255, alpha))));
+            float a = base * (1.0f - layer * 0.14f);
+            a = Math.min(1f, Math.max(0.05f, a));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
+            g.setColor(ThemeConfig.DANGER_GLOW);
             g.drawRoundRect(rx - spread, ry - spread, rw + spread * 2, rh + spread * 2, 10, 10);
         }
+        g.setComposite(AlphaComposite.SrcOver);
     }
 
-    private void drawNameBadge(Graphics2D g, String label, int anchorX, int anchorY, int width, boolean below) {
-        g.setFont(this.font.deriveFont(ThemeConfig.FONT_SMALL));
+    private void drawNameBadge(Graphics2D g, String label, int anchorX, int anchorY, int width) {
+        g.setFont(ThemeConfig.UI_FONT_BOLD);
         FontMetrics fm = g.getFontMetrics();
-        int textW = fm.stringWidth(label);
-        int padX = 10;
-        int padY = 4;
-        int boxW = textW + padX * 2;
-        int boxH = fm.getHeight() + padY;
-        int bx = anchorX + (width - boxW) / 2;
-        int by = below ? anchorY : anchorY - boxH;
-        g.setColor(new java.awt.Color(0, 0, 0, 160));
-        g.fillRoundRect(bx, by, boxW, boxH, 10, 10);
-        g.setColor(java.awt.Color.WHITE);
-        g.drawString(label, bx + padX, by + fm.getAscent() + padY / 2);
+        int labelW = fm.stringWidth(label) + 16;
+        int labelH = fm.getHeight() + 6;
+        int labelX = anchorX + (width - labelW) / 2;
+        int labelY = anchorY;
+        g.setColor(ThemeConfig.LABEL_BG);
+        g.fillRoundRect(labelX - 8, labelY - fm.getAscent() - 3, labelW, labelH, 10, 10);
+        g.setColor(ThemeConfig.LABEL_TEXT);
+        g.drawString(label, labelX, labelY);
     }
 
     private void drawUnoCallout(Graphics2D g, int x, int y) {
-        g.setFont(this.font.deriveFont(Font.BOLD, ThemeConfig.FONT_LARGE));
-        g.setColor(new java.awt.Color(255, 40, 40));
+        g.setFont(ThemeConfig.UI_FONT_BOLD.deriveFont(ThemeConfig.FONT_LARGE));
+        g.setColor(ThemeConfig.UNO_TEXT);
         g.drawString("UNO!", x, y);
     }
 
     private void drawCard(Graphics2D g, Card card, int x, int y) {
-        BufferedImage img = cardRenderer.getCardImage(card);
+        String key = getCardSpriteKey(card);
+        BufferedImage img = ImageCardLoader.getCard(key);
         g.drawImage(img, x, y, ThemeConfig.CARD_W, ThemeConfig.CARD_H, null);
     }
 
@@ -463,7 +479,7 @@ public class UnoPanel extends JPanel implements Runnable {
     }
 
     public Point getDrawPilePosition() {
-        return new Point(ThemeConfig.DRAW_PILE_X, ThemeConfig.DRAW_PILE_Y);
+        return new Point(ThemeConfig.DRAW_X, ThemeConfig.DRAW_Y);
     }
 
     public Point getSeatNewCardPosition(int seatIdx, int cardIndex, int newHandSize) {
@@ -473,7 +489,7 @@ public class UnoPanel extends JPanel implements Runnable {
             case 3 -> ThemeConfig.SIDE_HAND_X_RIGHT + offset.x;
             case 0, 2 -> {
                 int availableWidth = ThemeConfig.HORIZONTAL_HAND_AVAILABLE_WIDTH;
-                int overlap = newHandSize <= 1 ? 0 : Math.min(28, (availableWidth - ThemeConfig.CARD_W) / Math.max(1, newHandSize - 1));
+                int overlap = newHandSize <= 1 ? 0 : Math.min(ThemeConfig.HAND_OVERLAP_H_MAX, (availableWidth - ThemeConfig.CARD_W) / Math.max(1, newHandSize - 1));
                 int totalWidth = newHandSize <= 1 ? ThemeConfig.CARD_W : ThemeConfig.CARD_W + overlap * (newHandSize - 1);
                 int startX = (ThemeConfig.BOARD_W - totalWidth) / 2 + offset.x;
                 yield startX + cardIndex * overlap;
@@ -485,9 +501,9 @@ public class UnoPanel extends JPanel implements Runnable {
             case 2 -> ThemeConfig.TOP_HAND_Y + offset.y;
             case 1, 3 -> {
                 int availableHeight = ThemeConfig.VERTICAL_HAND_AVAILABLE_HEIGHT;
-                int overlap = newHandSize <= 1 ? 0 : Math.min(48, (availableHeight - ThemeConfig.CARD_H) / Math.max(1, newHandSize - 1));
+                int overlap = newHandSize <= 1 ? 0 : Math.min(ThemeConfig.HAND_OVERLAP_V_MAX, (availableHeight - ThemeConfig.CARD_H) / Math.max(1, newHandSize - 1));
                 int totalHeight = newHandSize <= 1 ? ThemeConfig.CARD_H : ThemeConfig.CARD_H + overlap * (newHandSize - 1);
-                int startY = (ThemeConfig.BOARD_H - totalHeight) / 2 + offset.y;
+                int startY = (ThemeConfig.PLAY_AREA_H - totalHeight) / 2 + offset.y;
                 yield startY + cardIndex * overlap;
             }
             default -> throw new IllegalArgumentException("bad seat");
@@ -545,48 +561,5 @@ public class UnoPanel extends JPanel implements Runnable {
             case YELLOW -> ThemeConfig.CARD_YELLOW;
             default -> java.awt.Color.GRAY;
         };
-    }
-
-    private void drawWinOverlay(Graphics2D g, Game.GameView view) {
-        g.setColor(new java.awt.Color(0, 0, 0, 180));
-        g.fillRect(0, 0, ThemeConfig.BOARD_W, ThemeConfig.BOARD_H);
-        int winner = winnerLogicalIdx(view);
-        String title;
-        if (winner >= 0) {
-            title = agentDisplayNames[winner] + " wins";
-        } else {
-            title = "Game over";
-        }
-        int cx = ThemeConfig.BOARD_W / 2;
-        int cy = ThemeConfig.BOARD_H / 2 - 40;
-        g.setFont(this.font.deriveFont(Font.BOLD, ThemeConfig.FONT_LARGE));
-        FontMetrics fm = g.getFontMetrics();
-        g.setColor(java.awt.Color.WHITE);
-        int tx = cx - fm.stringWidth(title) / 2;
-        g.drawString(title, tx, cy);
-        g.setFont(this.font.deriveFont(ThemeConfig.FONT_MEDIUM));
-        fm = g.getFontMetrics();
-        String stats = "Moves: " + view.getCurrentMoveIdx();
-        g.drawString(stats, cx - fm.stringWidth(stats) / 2, cy + 48);
-        int y = cy + 88;
-        for (int i = 0; i < view.getNumPlayers(); i++) {
-            String line = agentDisplayNames[i] + ": " + view.getHandView(i).size() + " cards";
-            g.drawString(line, cx - fm.stringWidth(line) / 2, y);
-            y += fm.getHeight();
-        }
-        Random rnd = new Random(Math.max(0, winner));
-        for (int k = 0; k < 80; k++) {
-            g.setColor(new java.awt.Color(rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256), 200));
-            g.fillOval(rnd.nextInt(ThemeConfig.BOARD_W), rnd.nextInt(ThemeConfig.BOARD_H), 6, 6);
-        }
-    }
-
-    private int winnerLogicalIdx(Game.GameView view) {
-        for (int i = 0; i < view.getNumPlayers(); i++) {
-            if (view.getHandView(i).size() == 0) {
-                return i;
-            }
-        }
-        return -1;
     }
 }

@@ -28,7 +28,7 @@ public class SkipAnimation extends UnoAnimation {
             return;
         }
         int cx = ThemeConfig.BOARD_W / 2;
-        int cy = ThemeConfig.BOARD_H / 2;
+        int cy = ThemeConfig.PLAY_AREA_H / 2;
         int r = 48;
         java.awt.Color red = new java.awt.Color(255, 40, 40, alpha);
         g.setColor(red);
