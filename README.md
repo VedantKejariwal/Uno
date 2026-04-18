@@ -13,6 +13,7 @@ The game state comes in two forms. `GameView` is read-only and represents a snap
 Moves are not represented as card objects during search. They are represented as Q-value indices. For a normal turn where the player has legal cards to play, `getOrderedLegalMoves()` returns a list of hand indices (positions in the player's hand, not card objects), and Q-index 0 corresponds to the first entry in that list, Q-index 1 to the second, and so on. For the situation where a player just drew a card and can optionally play it, there are exactly two Q-slots: index 0 means play the drawn card, index 1 means keep it. For forced draws from stacked Draw Two or Wild Draw Four penalties, there is exactly one Q-slot and no real decision. This Q-index abstraction is what connects `search()` (which writes Q-values) to `argmaxQValues()` (which reads them).
 
 ## ExpectedOutcomeAgent
+`src/pas/uno/agents/ExpectedOutcomeAgent.java`
 
 ### MCTSNode
 
@@ -57,6 +58,7 @@ For `NO_LEGAL_MOVES_MAY_PLAY_DRAWN_CARD`, it compares the Q-values at the two na
 For `NO_LEGAL_MOVES_UNRESOLVED_CARDS_PRESENT`, there is no choice the player must draw the stacked penalty cards. The method creates a fresh `Game` copy with a `RandomAgent` array and calls `copyGame.getMove()` to get the forced draw move from the engine.
 
 ## UCTAgent
+`src/pas/uno/agents/UCTAgent.java`
 
 UCTAgent has the same overall skeleton as ExpectedOutcomeAgent same nested `MCTSNode`, same three-case `argmaxQValues()` but `search()` is completely different. Instead of treating every root child equally and only updating root Q-values, UCTAgent builds a tree that grows deeper over time and updates every node on the path after each rollout.
 
@@ -105,6 +107,8 @@ The loop does not update the leaf node itself because no action was taken from i
 ### argmaxQValues()
 
 Identical to `ExpectedOutcomeAgent`. Same three NodeState cases, same Q-value argmax loop, same move construction logic including the wild card check and the `myHand.size() - 1` index for drawn cards. The named constants `DrawSingleCardIdxs.PLAY_CARD_MOVE_IDX` and `DrawSingleCardIdxs.KEEP_CARD_MOVE_IDX` are used for the play/keep comparison to be explicit about which index means what.
+
+## Check out `doc/pas/uno/index.html` for more details.
 
 ## How to run
 
