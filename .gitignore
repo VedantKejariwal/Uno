@@ -17,6 +17,7 @@ hs_err_pid*.log
 
 # Markdown (notes, PRDs, generated docs, legal copies)
 *.md
+!README.md
 
 # Local tooling / decompile scratch (not part of the assignment tree)
 tools/
